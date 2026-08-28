@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Navigation, Camera, Plus, Loader2, GripVertical, Trash2, Edit2, ChevronLeft, ChevronRight, MapPin, X, Search, Sparkles, FolderOpen, Save } from 'lucide-react';
+import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useSwipeable } from 'react-swipeable';
 import { useJsApiLoader } from '@react-google-maps/api';
+import exifr from 'exifr';
 
 const GoogleMapComponent = dynamic(() => import('../components/GoogleMapComponent'), { ssr: false });
 
@@ -44,6 +45,9 @@ export default function TravelMapApp() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [lightboxPhotos, setLightboxPhotos] = useState<any[]>([]);
   const [lightboxDescInput, setLightboxDescInput] = useState('');
+
+  // Mobile Map Expand State
+  const [isMapExpanded, setIsMapExpanded] = useState(true);
 
   useEffect(() => {
     fetchTrips();
@@ -256,11 +260,46 @@ export default function TravelMapApp() {
 
     setUploading(true);
     try {
-      const uploadPromises = Array.from(files).map((file: any) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('place_id', placeId);
-        return fetch('/api/photos/upload', { method: 'POST', body: formData });
+      const uploadPromises = Array.from(files).map(async (file: any) => {
+        // 1. Get Presigned URL
+        const ext = file.name.split('.').pop() || 'jpg';
+        const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`);
+        const urlData = await urlRes.json();
+        
+        if (!urlData.success) throw new Error('無法取得上傳網址');
+
+        // 2. Upload directly to R2
+        await fetch(urlData.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type },
+          body: file
+        });
+
+        // 3. (Optional) Parse EXIF to get photo time (no GPS assignment needed here)
+        let photoTime = new Date().toISOString();
+        try {
+          const exif = await exifr.parse(file);
+          if (exif && exif.DateTimeOriginal) {
+            photoTime = new Date(exif.DateTimeOriginal).toISOString();
+          }
+        } catch(err) {
+          console.log('No EXIF time');
+        }
+
+        // 4. Save to database using a generic assign route or similar.
+        // Wait, the old `/api/photos/upload` also existed!
+        // We can use `smart-assign` and pass `placeId` explicitly!
+        // Let's modify smart-assign to accept an optional `place_id` override.
+        return fetch('/api/photos/smart-assign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trip_id: selectedTrip?.id,
+            photoUrl: urlData.publicUrl,
+            photoTime,
+            override_place_id: placeId
+          })
+        });
       });
 
       await Promise.all(uploadPromises);
@@ -269,7 +308,6 @@ export default function TravelMapApp() {
       console.error('批次上傳照片錯誤', err);
     } finally {
       setUploading(false);
-      // clear input
       e.target.value = '';
     }
   };
@@ -280,20 +318,62 @@ export default function TravelMapApp() {
 
     setUploading(true);
     try {
-      const uploadPromises = Array.from(files).map((file: any) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('trip_id', selectedTrip.id);
-        return fetch('/api/photos/smart-upload', { method: 'POST', body: formData });
+      const uploadPromises = Array.from(files).map(async (file: any) => {
+        // 1. 解析 EXIF
+        let gpsLat = null;
+        let gpsLng = null;
+        let photoTime = new Date().toISOString();
+        
+        try {
+          const exif = await exifr.parse(file);
+          if (exif) {
+            if (exif.latitude && exif.longitude) {
+              gpsLat = exif.latitude;
+              gpsLng = exif.longitude;
+            }
+            if (exif.DateTimeOriginal) {
+              photoTime = new Date(exif.DateTimeOriginal).toISOString();
+            }
+          }
+        } catch(err) {
+          console.log('EXIF parse error', err);
+        }
+
+        // 2. 取得 Presigned URL
+        const ext = file.name.split('.').pop() || 'jpg';
+        const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`);
+        const urlData = await urlRes.json();
+        
+        if (!urlData.success) throw new Error('無法取得上傳網址');
+
+        // 3. 直傳檔案到 Cloudflare R2
+        await fetch(urlData.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type },
+          body: file
+        });
+
+        // 4. 通知後端寫入 DB 並自動分配景點
+        return fetch('/api/photos/smart-assign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trip_id: selectedTrip.id,
+            photoUrl: urlData.publicUrl,
+            gpsLat,
+            gpsLng,
+            photoTime
+          })
+        });
       });
 
       await Promise.all(uploadPromises);
       fetchPlaces(selectedTrip.id);
     } catch (err) {
       console.error('智慧上傳照片錯誤', err);
+      alert('上傳失敗: ' + (err as Error).message);
     } finally {
       setUploading(false);
-      // clear input
       e.target.value = '';
     }
   };
@@ -372,15 +452,27 @@ export default function TravelMapApp() {
     <main className="flex flex-col md:flex-row h-screen bg-slate-50 text-slate-800 font-sans overflow-hidden">
       
       {/* 左半邊：地圖 + 旅程列表 (20% 寬度) */}
-      <section className="flex flex-col w-full md:w-1/5 h-[50vh] md:h-full border-b md:border-b-0 md:border-r border-slate-200">
-        <div className="flex-[3] relative bg-slate-200 z-0">
+      <section className="flex flex-col w-full md:w-1/5 h-full border-b md:border-b-0 md:border-r border-slate-200">
+        
+        {/* 手機版：展開收合地圖按鈕 */}
+        <div 
+          className="md:hidden flex items-center justify-between px-4 py-3 bg-slate-800 text-white font-medium cursor-pointer shadow-md z-20"
+          onClick={() => setIsMapExpanded(!isMapExpanded)}
+        >
+          <span className="flex items-center"><MapPin className="w-4 h-4 mr-2 text-blue-400" /> 地圖預覽</span>
+          <span className="flex items-center text-sm text-slate-300">
+            {isMapExpanded ? <><ChevronUp className="w-4 h-4 mr-1"/> 收合</> : <><ChevronDown className="w-4 h-4 mr-1"/> 展開</>}
+          </span>
+        </div>
+
+        <div className={`${isMapExpanded ? 'h-[40vh]' : 'h-0 hidden'} md:h-auto md:flex-[3] relative bg-slate-200 z-0 transition-all duration-300`}>
           {isLoaded ? (
             <GoogleMapComponent places={normalPlaces} photos={photos} selectionMode={false} />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">Google 地圖載入中...</div>
           )}
         </div>
-        <div className="flex-[2] flex flex-col bg-white overflow-hidden shadow-sm z-10">
+        <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden shadow-sm z-10 border-t border-slate-200">
           <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
             <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
               <Navigation className="w-5 h-5 text-blue-600" />
@@ -395,9 +487,9 @@ export default function TravelMapApp() {
               <div 
                 key={trip.id}
                 onClick={() => setSelectedTrip(trip)}
-                className={`p-4 rounded-xl mb-2 cursor-pointer transition border ${selectedTrip?.id === trip.id ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-transparent hover:bg-slate-50'}`}
+                className={`p-4 rounded-xl mb-2 cursor-pointer transition border ${selectedTrip?.id === trip.id ? 'bg-white border-blue-300 shadow-md ring-1 ring-blue-100' : 'bg-white border-slate-200 hover:border-blue-200 hover:shadow-sm'}`}
               >
-                <div className="font-bold text-slate-800">{trip.name}</div>
+                <div className={`font-bold ${selectedTrip?.id === trip.id ? 'text-blue-700' : 'text-slate-800'}`}>{trip.name}</div>
                 <div className="text-xs text-slate-400 mt-1">
                   {new Date(trip.start_date || trip.created_at).toLocaleDateString()}
                 </div>
