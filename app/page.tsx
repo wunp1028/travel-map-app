@@ -908,11 +908,11 @@ export default function TravelMapApp() {
             <ChevronRight className="w-8 h-8" />
           </button>
 
-          <div className="flex-1 w-full max-w-7xl flex items-center justify-center md:p-4 overflow-hidden relative z-10">
+          <div className="flex-1 w-full max-w-7xl flex items-center justify-center overflow-hidden relative z-10">
             <img 
               src={lightboxPhotos[currentPhotoIndex].url} 
               alt="Fullscreen" 
-              className="w-full h-full md:max-w-full md:max-h-[90vh] object-contain md:rounded-lg md:shadow-2xl" 
+              className="w-full h-full object-contain" 
             />
           </div>
         </div>
