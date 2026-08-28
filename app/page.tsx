@@ -888,7 +888,7 @@ export default function TravelMapApp() {
       {/* 照片放大 Lightbox 包含編輯功能 */}
       {lightboxOpen && lightboxPhotos.length > 0 && (
         <div 
-          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col items-center animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] bg-black flex flex-col items-center animate-in fade-in duration-200"
           {...swipeHandlers}
         >
           <div className="absolute top-0 w-full p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/50 to-transparent">
@@ -908,11 +908,11 @@ export default function TravelMapApp() {
             <ChevronRight className="w-8 h-8" />
           </button>
 
-          <div className="flex-1 w-full max-w-7xl flex items-center justify-center p-4 overflow-hidden relative z-10">
+          <div className="flex-1 w-full max-w-7xl flex items-center justify-center md:p-4 overflow-hidden relative z-10">
             <img 
               src={lightboxPhotos[currentPhotoIndex].url} 
               alt="Fullscreen" 
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" 
+              className="w-full h-full md:max-w-full md:max-h-[90vh] object-contain md:rounded-lg md:shadow-2xl" 
             />
           </div>
         </div>
