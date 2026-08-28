@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/clients';
+import { adminSupabase } from '@/lib/clients';
 
 // GET: 讀取特定旅程的所有景點
 export async function GET(request: Request) {
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
 
     if (!trip_id) return NextResponse.json({ error: '缺少 trip_id' }, { status: 400 });
 
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('places')
       .select('*')
       .eq('trip_id', trip_id)
@@ -25,10 +25,15 @@ export async function GET(request: Request) {
 // POST: 新增一個打卡景點
 export async function POST(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.API_SECRET_KEY}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { trip_id, name, lat, lng, order_index, description } = body;
 
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('places')
       .insert([{ trip_id, name, lat, lng, order_index, description }])
       .select();
@@ -43,10 +48,15 @@ export async function POST(request: Request) {
 // PUT: 修改景點資訊
 export async function PUT(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.API_SECRET_KEY}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id, name, lat, lng, order_index, description } = body;
 
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('places')
       .update({ name, lat, lng, order_index, description })
       .eq('id', id)
@@ -62,12 +72,17 @@ export async function PUT(request: Request) {
 // DELETE: 刪除景點
 export async function DELETE(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.API_SECRET_KEY}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) return NextResponse.json({ error: '缺少 id' }, { status: 400 });
 
-    const { error } = await supabase
+    const { error } = await adminSupabase
       .from('places')
       .delete()
       .eq('id', id);

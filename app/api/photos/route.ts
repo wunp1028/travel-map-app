@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase, r2 } from '@/lib/clients';
+import { adminSupabase, r2 } from '@/lib/clients';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 // GET: 依照條件篩選照片 (例如 category = '美食')
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const category = searchParams.get('category');
     const place_id = searchParams.get('place_id');
 
-    let query = supabase.from('photos').select('*');
+    let query = adminSupabase.from('photos').select('*');
     
     // 動態加入過濾條件
     if (category) query = query.eq('category', category);
@@ -34,7 +34,7 @@ export async function PUT(request: Request) {
 
     const { id, category, tags, description, place_id } = await request.json();
 
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('photos')
       .update({ category, tags, description, place_id })
       .eq('id', id)
@@ -61,7 +61,7 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: '缺少 id' }, { status: 400 });
 
     // 1. 先從資料庫取得照片網址
-    const { data: photoData, error: fetchError } = await supabase
+    const { data: photoData, error: fetchError } = await adminSupabase
       .from('photos')
       .select('url')
       .eq('id', id)
@@ -82,7 +82,7 @@ export async function DELETE(request: Request) {
     }
 
     // 3. 從資料庫刪除
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await adminSupabase
       .from('photos')
       .delete()
       .eq('id', id);

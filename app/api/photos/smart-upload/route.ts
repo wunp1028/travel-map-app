@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase, r2, geminiModel } from '@/lib/clients';
+import { adminSupabase, r2, geminiModel } from '@/lib/clients';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
 import exifParser from 'exif-parser';
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     // 取得該旅程所有景點
-    const { data: places, error: placesError } = await supabase
+    const { data: places, error: placesError } = await adminSupabase
       .from('places')
       .select('*')
       .eq('trip_id', trip_id);
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     if (!targetPlaceId) {
       let unassignedPlace = (places || []).find(p => p.name === '未分配照片區');
       if (!unassignedPlace) {
-        const { data: newPlace, error: newPlaceError } = await supabase
+        const { data: newPlace, error: newPlaceError } = await adminSupabase
           .from('places')
           .insert([{ 
             trip_id, 
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
     // }
 
     // 6. 寫入資料庫
-    const { data: dbData, error: dbError } = await supabase
+    const { data: dbData, error: dbError } = await adminSupabase
       .from('photos')
       .insert([{
         place_id: targetPlaceId,

@@ -2,10 +2,16 @@ import { createClient } from '@supabase/supabase-js';
 import { S3Client } from '@aws-sdk/client-s3';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// 1. 初始化 Supabase
+// 1. 初始化 Supabase (前端公開)
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// 1.5 初始化 Supabase (後端管理員，無限制)
+export const adminSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 // 2. 初始化 Cloudflare R2 (使用 AWS S3 套件)

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase, geminiModel } from '@/lib/clients';
+import { adminSupabase, geminiModel } from '@/lib/clients';
 
 // 計算兩點經緯度距離 (公里)
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
     if (!targetPlaceId) {
       // 取得該旅程所有景點
-      const { data: places, error: placesError } = await supabase
+      const { data: places, error: placesError } = await adminSupabase
         .from('places')
         .select('*')
         .eq('trip_id', trip_id);
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       if (!targetPlaceId) {
         let unassignedPlace = (places || []).find(p => p.name === '未分配照片區');
         if (!unassignedPlace) {
-          const { data: newPlace, error: newPlaceError } = await supabase
+          const { data: newPlace, error: newPlaceError } = await adminSupabase
             .from('places')
             .insert([{ 
               trip_id, 
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     let aiData = { category: '未分類', tags: [] };
 
     // 6. 寫入資料庫
-    const { data: dbData, error: dbError } = await supabase
+    const { data: dbData, error: dbError } = await adminSupabase
       .from('photos')
       .insert([{
         place_id: targetPlaceId,

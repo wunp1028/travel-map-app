@@ -128,7 +128,7 @@ export default function TravelMapApp() {
     try {
       const res = await fetch('/api/trips', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ name: newTripName, start_date: new Date().toISOString() })
       });
       const json = await res.json();
@@ -180,7 +180,7 @@ export default function TravelMapApp() {
       if (editingPlace) {
         const res = await fetch('/api/places', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             id: editingPlace.id,
             name: placeFormData.name,
@@ -198,7 +198,7 @@ export default function TravelMapApp() {
       } else {
         const res = await fetch('/api/places', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             trip_id: selectedTrip.id,
             name: placeFormData.name,
@@ -222,7 +222,10 @@ export default function TravelMapApp() {
   const handleDeletePlace = async (id: any) => {
     if (!confirm('確定要刪除這個景點嗎？')) return;
     try {
-      const res = await fetch(`/api/places?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/places?id=${id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       const json = await res.json();
       if (json.success && selectedTrip) {
         fetchPlaces(selectedTrip.id);
@@ -258,7 +261,7 @@ export default function TravelMapApp() {
       for (const place of updatedPlaces) {
         await fetch('/api/places', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(place)
         });
       }
