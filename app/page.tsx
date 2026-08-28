@@ -672,7 +672,7 @@ export default function TravelMapApp() {
                           {photos.filter(p => p.place_id === place.id).length > 0 && (
                             <div className="flex overflow-x-auto snap-x snap-mandatory gap-2 md:gap-4 pb-2 scrollbar-thin scrollbar-thumb-slate-200 mt-4">
                               {photos.filter(p => p.place_id === place.id).map((photo, pIndex) => (
-                                <div key={photo.id} className="snap-start shrink-0 w-[90vw] sm:w-72 md:w-72 lg:w-80 relative group flex flex-col">
+                                <div key={photo.id} className="snap-start shrink-0 w-[92vw] sm:w-72 md:w-72 lg:w-80 relative group flex flex-col">
                                   <div 
                                     className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
                                     onClick={() => openLightbox(place.id, pIndex)}
