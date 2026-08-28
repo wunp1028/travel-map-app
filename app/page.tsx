@@ -514,6 +514,14 @@ export default function TravelMapApp() {
             <div className="flex items-center gap-1.5 md:gap-2">
               {/* 手機版：把智慧上傳跟新增景點移到這裡 */}
               <div className="flex md:hidden items-center gap-1.5">
+                <button 
+                  onClick={() => setIsManageMode(!isManageMode)}
+                  disabled={!selectedTrip}
+                  className={`p-1.5 rounded-full transition disabled:opacity-50 ${isManageMode ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}
+                  title="批次管理照片"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
                 <label className={`p-1.5 rounded-full cursor-pointer transition ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`} title="智慧上傳照片">
                   {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   <input type="file" accept="image/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
