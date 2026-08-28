@@ -474,7 +474,7 @@ export default function TravelMapApp() {
           )}
         </div>
         <div className="flex-none md:flex-1 bg-slate-50 shadow-sm z-10 border-t border-slate-200">
-          <div className="p-2 md:p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
+          <div className="px-4 py-2 md:p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
             <h2 
               className="font-bold text-sm md:text-lg text-slate-800 flex items-center gap-2 cursor-pointer hover:text-blue-600 transition"
               onClick={() => setIsTripListExpanded(!isTripListExpanded)}
