@@ -563,7 +563,7 @@ export default function TravelMapApp() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 md:p-6 space-y-4 md:space-y-8">
+        <div className="flex-1 overflow-y-auto px-1 py-2 md:p-6 space-y-4 md:space-y-8">
           
           {/* 未分配照片區塊 */}
           {unassignedPlace && photos.filter(p => p.place_id === unassignedPlace.id).length > 0 && (
@@ -670,9 +670,9 @@ export default function TravelMapApp() {
 
                           {/* 照片展示區：橫向捲動 */}
                           {photos.filter(p => p.place_id === place.id).length > 0 && (
-                            <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 md:gap-4 pb-2 scrollbar-thin scrollbar-thumb-slate-200 mt-4">
+                            <div className="flex overflow-x-auto snap-x snap-mandatory gap-2 md:gap-4 pb-2 scrollbar-thin scrollbar-thumb-slate-200 mt-4">
                               {photos.filter(p => p.place_id === place.id).map((photo, pIndex) => (
-                                <div key={photo.id} className="snap-start shrink-0 w-[85vw] sm:w-72 md:w-72 lg:w-80 relative group flex flex-col">
+                                <div key={photo.id} className="snap-start shrink-0 w-[90vw] sm:w-72 md:w-72 lg:w-80 relative group flex flex-col">
                                   <div 
                                     className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
                                     onClick={() => openLightbox(place.id, pIndex)}
@@ -891,7 +891,7 @@ export default function TravelMapApp() {
           className="fixed inset-0 z-[100] bg-black flex flex-col items-center animate-in fade-in duration-200"
           {...swipeHandlers}
         >
-          <div className="absolute top-0 w-full p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/50 to-transparent">
+          <div className="absolute top-0 w-full p-4 pt-[calc(1rem+env(safe-area-inset-top))] flex justify-between items-center z-20 bg-gradient-to-b from-black/50 to-transparent">
             <div className="text-white/70 text-sm font-medium px-2">
               {currentPhotoIndex + 1} / {lightboxPhotos.length}
             </div>
