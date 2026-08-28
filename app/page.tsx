@@ -452,7 +452,7 @@ export default function TravelMapApp() {
     <main className="flex flex-col md:flex-row h-screen bg-slate-50 text-slate-800 font-sans overflow-hidden">
       
       {/* 左半邊：地圖 + 旅程列表 (20% 寬度) */}
-      <section className="flex flex-col w-full md:w-1/5 h-full border-b md:border-b-0 md:border-r border-slate-200">
+      <section className="flex flex-col w-full md:w-1/5 flex-none md:flex-auto md:h-full border-b md:border-b-0 md:border-r border-slate-200">
         
         {/* 手機版：展開收合地圖按鈕 */}
         <div 
@@ -472,22 +472,23 @@ export default function TravelMapApp() {
             <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">Google 地圖載入中...</div>
           )}
         </div>
-        <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden shadow-sm z-10 border-t border-slate-200">
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
-            <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-              <Navigation className="w-5 h-5 text-blue-600" />
+        <div className="flex-none md:flex-1 bg-slate-50 shadow-sm z-10 border-t border-slate-200">
+          <div className="p-2 md:p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
+            <h2 className="font-bold text-sm md:text-lg text-slate-800 flex items-center gap-2">
+              <Navigation className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
               我的旅程
             </h2>
-            <button onClick={() => setIsAddTripModalOpen(true)} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition shadow-sm" title="新增旅程">
+            <button onClick={() => setIsAddTripModalOpen(true)} className="p-1 md:p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition shadow-sm" title="新增旅程">
               <Plus className="w-4 h-4" />
             </button>
           </div>
-          <div className="overflow-y-auto flex-1 p-2">
+          {/* 行程橫向/直向滾動區塊 */}
+          <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto p-2 gap-2 md:p-2">
             {trips.map(trip => (
               <div 
                 key={trip.id}
                 onClick={() => setSelectedTrip(trip)}
-                className={`p-4 rounded-xl mb-2 cursor-pointer transition border ${selectedTrip?.id === trip.id ? 'bg-white border-blue-300 shadow-md ring-1 ring-blue-100' : 'bg-white border-slate-200 hover:border-blue-200 hover:shadow-sm'}`}
+                className={`flex-none w-48 md:w-auto p-3 md:p-4 rounded-xl cursor-pointer transition border ${selectedTrip?.id === trip.id ? 'bg-white border-blue-300 shadow-md ring-1 ring-blue-100' : 'bg-white border-slate-200 hover:border-blue-200 hover:shadow-sm'}`}
               >
                 <div className={`font-bold ${selectedTrip?.id === trip.id ? 'text-blue-700' : 'text-slate-800'}`}>{trip.name}</div>
                 <div className="text-xs text-slate-400 mt-1">
