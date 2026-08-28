@@ -49,8 +49,6 @@ export default function TravelMapApp() {
   const [lightboxPhotos, setLightboxPhotos] = useState<any[]>([]);
   const [lightboxDescInput, setLightboxDescInput] = useState('');
 
-  // Mobile Map Expand State
-  const [isMapExpanded, setIsMapExpanded] = useState(true);
 
   useEffect(() => {
     fetchTrips();
