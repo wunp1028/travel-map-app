@@ -501,7 +501,7 @@ export default function TravelMapApp() {
       </section>
 
       {/* 右半邊：景點與照片列表 (80% 寬度) */}
-      <aside className="flex flex-col w-full md:w-4/5 h-[50vh] md:h-full bg-slate-50 z-10">
+      <aside className="flex-1 flex flex-col w-full md:w-4/5 h-full bg-slate-50 z-10 min-h-0">
         
         <div className="p-4 md:p-6 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm shrink-0">
           <div>
