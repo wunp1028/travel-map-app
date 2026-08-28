@@ -755,16 +755,16 @@ export default function TravelMapApp() {
 
       {/* 新增/編輯景點 Modal */}
       {isPlaceModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl h-[95vh] md:h-[85vh] flex flex-col overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white z-10">
               <h3 className="font-bold text-lg">{editingPlace ? '編輯景點與遊記' : '新增景點與遊記'}</h3>
               <button onClick={() => setIsPlaceModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
             </div>
             
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
               {/* 地圖選取區 */}
-              <div className="flex-1 h-[40vh] md:h-full bg-slate-100 relative">
+              <div className="flex-none md:flex-1 h-[35vh] md:h-full bg-slate-100 relative">
                 {isLoaded ? (
                   <GoogleMapComponent 
                     selectionMode={true}
@@ -778,8 +778,8 @@ export default function TravelMapApp() {
               </div>
               
               {/* 表單區 */}
-              <div className="w-full md:w-80 p-5 bg-white border-l border-slate-100 flex flex-col shrink-0 overflow-y-auto">
-                <form onSubmit={handleSavePlace} className="flex-1 flex flex-col gap-4">
+              <div className="flex-1 min-h-0 w-full md:w-80 p-5 bg-white border-l border-slate-100 flex flex-col overflow-y-auto">
+                <form onSubmit={handleSavePlace} className="flex flex-col gap-4 min-h-min">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">景點名稱</label>
                     <div className="flex gap-2">
