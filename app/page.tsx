@@ -1,0 +1,795 @@
+'use client';
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { Navigation, Camera, Plus, Loader2, GripVertical, Trash2, Edit2, ChevronLeft, ChevronRight, MapPin, X, Search, Sparkles, FolderOpen, Save } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { useSwipeable } from 'react-swipeable';
+import { useJsApiLoader } from '@react-google-maps/api';
+
+const GoogleMapComponent = dynamic(() => import('../components/GoogleMapComponent'), { ssr: false });
+
+const libraries: any[] = [];
+
+export default function TravelMapApp() {
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries
+  });
+
+  const [trips, setTrips] = useState<any[]>([]);
+  const [selectedTrip, setSelectedTrip] = useState<any | null>(null);
+  const [places, setPlaces] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
+  
+  const [uploading, setUploading] = useState(false);
+  
+  // Modals state
+  const [isAddTripModalOpen, setIsAddTripModalOpen] = useState(false);
+  const [newTripName, setNewTripName] = useState('');
+
+  const [isPlaceModalOpen, setIsPlaceModalOpen] = useState(false);
+  const [editingPlace, setEditingPlace] = useState<any | null>(null);
+  const [placeFormData, setPlaceFormData] = useState({ name: '', lat: 35.2048, lng: 139.0253, description: '' });
+  const [searchingLocation, setSearchingLocation] = useState(false);
+
+  // Photo Edit Modal
+  const [isPhotoEditModalOpen, setIsPhotoEditModalOpen] = useState(false);
+  const [editingPhoto, setEditingPhoto] = useState<any | null>(null);
+  const [photoEditDesc, setPhotoEditDesc] = useState('');
+
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [lightboxPhotos, setLightboxPhotos] = useState<any[]>([]);
+  const [lightboxDescInput, setLightboxDescInput] = useState('');
+
+  useEffect(() => {
+    fetchTrips();
+  }, []);
+
+  const fetchTrips = async () => {
+    try {
+      const res = await fetch('/api/trips');
+      const json = await res.json();
+      if (json.success && json.data.length > 0) {
+        setTrips(json.data);
+        if (!selectedTrip) setSelectedTrip(json.data[0]);
+      }
+    } catch (err) {
+      console.error('載入旅程失敗', err);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedTrip) {
+      setPlaces([]); // 切換旅程時先清空舊景點，避免殘留或重疊
+      setPhotos([]);
+      fetchPlaces(selectedTrip.id);
+    }
+  }, [selectedTrip]);
+
+  const fetchPlaces = async (tripId: string | number) => {
+    if (!tripId) return;
+    try {
+      const res = await fetch(`/api/places?trip_id=${tripId}`);
+      const json = await res.json();
+      if (json.success) {
+        setPlaces(json.data || []);
+        const placeIds = json.data.map((p: any) => p.id);
+        fetchAllPhotos(placeIds);
+      }
+    } catch (err) {
+      console.error('載入景點失敗', err);
+    }
+  };
+
+  const fetchAllPhotos = async (placeIds: any[]) => {
+    if (!placeIds || placeIds.length === 0) {
+      setPhotos([]);
+      return;
+    }
+    try {
+      const allPhotos: any[] = [];
+      for (const pid of placeIds) {
+        const res = await fetch(`/api/photos?place_id=${pid}`);
+        const json = await res.json();
+        if (json.success) {
+          allPhotos.push(...(json.data || []));
+        }
+      }
+      setPhotos(allPhotos);
+    } catch (err) {
+      console.error('載入照片失敗', err);
+    }
+  };
+
+  const handleCreateTrip = async (e: any) => {
+    e.preventDefault();
+    if (!newTripName.trim()) return;
+    try {
+      const res = await fetch('/api/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTripName, start_date: new Date().toISOString() })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNewTripName('');
+        setIsAddTripModalOpen(false);
+        fetchTrips();
+        setSelectedTrip(json.data);
+      }
+    } catch (err) {
+      console.error('新增旅程錯誤', err);
+    }
+  };
+
+  const handleSearchLocation = async () => {
+    if (!placeFormData.name) return;
+    setSearchingLocation(true);
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+      if (!apiKey) {
+        alert('請設定 Google Maps API Key');
+        return;
+      }
+      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(placeFormData.name)}&key=${apiKey}`);
+      const data = await res.json();
+      if (data && data.status === 'OK' && data.results.length > 0) {
+        const location = data.results[0].geometry.location;
+        setPlaceFormData(prev => ({ 
+          ...prev, 
+          lat: location.lat, 
+          lng: location.lng 
+        }));
+      } else {
+        alert('找不到該地點，請嘗試輸入更完整的名稱');
+      }
+    } catch (err) {
+      console.error('搜尋地點失敗', err);
+    } finally {
+      setSearchingLocation(false);
+    }
+  };
+
+
+
+  const handleSavePlace = async (e: any) => {
+    e.preventDefault();
+    if (!selectedTrip || !placeFormData.name.trim()) return;
+    try {
+      if (editingPlace) {
+        const res = await fetch('/api/places', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingPlace.id,
+            name: placeFormData.name,
+            description: placeFormData.description,
+            lat: parseFloat(String(placeFormData.lat)),
+            lng: parseFloat(String(placeFormData.lng)),
+            order_index: editingPlace.order_index
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          fetchPlaces(selectedTrip.id);
+          setIsPlaceModalOpen(false);
+        }
+      } else {
+        const res = await fetch('/api/places', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trip_id: selectedTrip.id,
+            name: placeFormData.name,
+            description: placeFormData.description,
+            lat: parseFloat(String(placeFormData.lat)),
+            lng: parseFloat(String(placeFormData.lng)),
+            order_index: places.length + 1
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          fetchPlaces(selectedTrip.id);
+          setIsPlaceModalOpen(false);
+        }
+      }
+    } catch (err) {
+      console.error('儲存景點錯誤', err);
+    }
+  };
+
+  const handleDeletePlace = async (id: any) => {
+    if (!confirm('確定要刪除這個景點嗎？')) return;
+    try {
+      const res = await fetch(`/api/places?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success && selectedTrip) {
+        fetchPlaces(selectedTrip.id);
+      }
+    } catch (err) {
+      console.error('刪除景點錯誤', err);
+    }
+  };
+
+  const onDragEnd = async (result: any) => {
+    if (!result.destination) return;
+
+    const sourceIndex = result.source.index;
+    const destinationIndex = result.destination.index;
+
+    if (sourceIndex === destinationIndex) return;
+
+    const normalPlaces = places.filter(p => p.name !== '未分配照片區');
+    
+    const newPlaces = Array.from(normalPlaces);
+    const [removed] = newPlaces.splice(sourceIndex, 1);
+    newPlaces.splice(destinationIndex, 0, removed);
+
+    const updatedPlaces = newPlaces.map((p, idx) => ({
+      ...p,
+      order_index: idx + 1
+    }));
+
+    // Optimistic UI update
+    setPlaces([...updatedPlaces, ...places.filter(p => p.name === '未分配照片區')]);
+
+    try {
+      for (const place of updatedPlaces) {
+        await fetch('/api/places', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(place)
+        });
+      }
+    } catch (err) {
+      console.error('更新順序失敗', err);
+    }
+  };
+
+  const handleMultiplePhotoUpload = async (e: any, placeId: any) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    try {
+      const uploadPromises = Array.from(files).map((file: any) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('place_id', placeId);
+        return fetch('/api/photos/upload', { method: 'POST', body: formData });
+      });
+
+      await Promise.all(uploadPromises);
+      if (selectedTrip) fetchPlaces(selectedTrip.id);
+    } catch (err) {
+      console.error('批次上傳照片錯誤', err);
+    } finally {
+      setUploading(false);
+      // clear input
+      e.target.value = '';
+    }
+  };
+
+  const handleSmartUpload = async (e: any) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !selectedTrip) return;
+
+    setUploading(true);
+    try {
+      const uploadPromises = Array.from(files).map((file: any) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('trip_id', selectedTrip.id);
+        return fetch('/api/photos/smart-upload', { method: 'POST', body: formData });
+      });
+
+      await Promise.all(uploadPromises);
+      fetchPlaces(selectedTrip.id);
+    } catch (err) {
+      console.error('智慧上傳照片錯誤', err);
+    } finally {
+      setUploading(false);
+      // clear input
+      e.target.value = '';
+    }
+  };
+
+  const handleReassignPhoto = async (photo: any, newPlaceId: any) => {
+    try {
+      await fetch('/api/photos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...photo, place_id: newPlaceId })
+      });
+      if (selectedTrip) fetchPlaces(selectedTrip.id);
+    } catch (err) {
+      console.error('重新分配照片錯誤', err);
+    }
+  };
+
+  const handleSavePhotoDesc = async (photo: any, newDesc: string) => {
+    try {
+      await fetch('/api/photos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...photo, description: newDesc })
+      });
+      if (selectedTrip) fetchPlaces(selectedTrip.id);
+    } catch (err) {
+      console.error('儲存照片描述錯誤', err);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: any) => {
+    if (!confirm('確定要刪除這張照片嗎？')) return;
+    try {
+      const res = await fetch(`/api/photos?id=${photoId}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success && selectedTrip) fetchPlaces(selectedTrip.id);
+    } catch (err) {
+      console.error('刪除照片錯誤', err);
+    }
+  };
+
+  const openLightbox = (placeId: any, index: number) => {
+    const pPhotos = photos.filter(p => p.place_id === placeId);
+    setLightboxPhotos(pPhotos);
+    setCurrentPhotoIndex(index);
+    setLightboxDescInput(pPhotos[index]?.description || '');
+    setLightboxOpen(true);
+  };
+
+  const closeLightbox = () => {
+    setLightboxOpen(false);
+  };
+
+  const nextPhoto = () => {
+    const nextIdx = (currentPhotoIndex + 1) % lightboxPhotos.length;
+    setCurrentPhotoIndex(nextIdx);
+    setLightboxDescInput(lightboxPhotos[nextIdx]?.description || '');
+  };
+
+  const prevPhoto = () => {
+    const prevIdx = (currentPhotoIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length;
+    setCurrentPhotoIndex(prevIdx);
+    setLightboxDescInput(lightboxPhotos[prevIdx]?.description || '');
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => nextPhoto(),
+    onSwipedRight: () => prevPhoto(),
+    trackMouse: true
+  });
+
+  const normalPlaces = useMemo(() => places.filter(p => p.name !== '未分配照片區'), [places]);
+  const unassignedPlace = useMemo(() => places.find(p => p.name === '未分配照片區'), [places]);
+
+  return (
+    <main className="flex flex-col md:flex-row h-screen bg-slate-50 text-slate-800 font-sans overflow-hidden">
+      
+      {/* 左半邊：地圖 + 旅程列表 (20% 寬度) */}
+      <section className="flex flex-col w-full md:w-1/5 h-[50vh] md:h-full border-b md:border-b-0 md:border-r border-slate-200">
+        <div className="flex-[3] relative bg-slate-200 z-0">
+          {isLoaded ? (
+            <GoogleMapComponent places={normalPlaces} photos={photos} selectionMode={false} />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">Google 地圖載入中...</div>
+          )}
+        </div>
+        <div className="flex-[2] flex flex-col bg-white overflow-hidden shadow-sm z-10">
+          <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
+            <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+              <Navigation className="w-5 h-5 text-blue-600" />
+              我的旅程
+            </h2>
+            <button onClick={() => setIsAddTripModalOpen(true)} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition shadow-sm" title="新增旅程">
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="overflow-y-auto flex-1 p-2">
+            {trips.map(trip => (
+              <div 
+                key={trip.id}
+                onClick={() => setSelectedTrip(trip)}
+                className={`p-4 rounded-xl mb-2 cursor-pointer transition border ${selectedTrip?.id === trip.id ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-transparent hover:bg-slate-50'}`}
+              >
+                <div className="font-bold text-slate-800">{trip.name}</div>
+                <div className="text-xs text-slate-400 mt-1">
+                  {new Date(trip.start_date || trip.created_at).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 右半邊：景點與照片列表 (80% 寬度) */}
+      <aside className="flex flex-col w-full md:w-4/5 h-[50vh] md:h-full bg-slate-50 z-10">
+        
+        <div className="p-4 md:p-6 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm shrink-0">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-800">{selectedTrip?.name || '請選擇旅程'}</h1>
+            <p className="text-sm text-slate-500 mt-1">規劃您的精彩景點與回憶</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-medium hover:bg-indigo-100 transition cursor-pointer disabled:opacity-50" title="上傳照片並自動分配到最近的景點">
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span className="hidden md:inline">{uploading ? '智慧上傳中...' : '智慧上傳照片'}</span>
+              <input type="file" accept="image/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
+            </label>
+            <button 
+              onClick={() => {
+                setEditingPlace(null);
+                setPlaceFormData({ name: '', lat: 35.2048, lng: 139.0253, description: '' });
+                setIsPlaceModalOpen(true);
+              }}
+              disabled={!selectedTrip}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden md:inline">新增景點</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8">
+          
+          {/* 未分配照片區塊 */}
+          {unassignedPlace && photos.filter(p => p.place_id === unassignedPlace.id).length > 0 && (
+            <div className="bg-orange-50/50 rounded-2xl border border-orange-200 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 text-orange-800">
+                <FolderOpen className="w-5 h-5" />
+                <h3 className="font-bold text-lg">未分配照片區</h3>
+                <span className="text-xs font-medium px-2 py-1 bg-orange-200 rounded-full">需手動分配</span>
+              </div>
+              <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 scrollbar-thin scrollbar-thumb-orange-200">
+                {photos.filter(p => p.place_id === unassignedPlace.id).map((photo, pIndex) => (
+                  <div key={photo.id} className="snap-start shrink-0 w-48 md:w-56 relative group">
+                    <div 
+                      className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
+                      onClick={() => openLightbox(unassignedPlace.id, pIndex)}
+                    >
+                      <img src={photo.url} alt="未分配" className="w-full h-full object-cover" />
+                    </div>
+                    {/* 分配下拉選單 */}
+                    <select 
+                      className="absolute bottom-2 left-2 right-2 text-xs p-1.5 rounded bg-white/90 backdrop-blur shadow outline-none cursor-pointer"
+                      value=""
+                      onChange={(e) => handleReassignPhoto(photo, e.target.value)}
+                    >
+                      <option value="" disabled>分配至...</option>
+                      {normalPlaces.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                    <button 
+                      onClick={() => handleDeletePhoto(photo.id)}
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-red-500 transition-all z-10"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 正常景點區塊 */}
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="places-list">
+              {(provided) => (
+                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-6">
+                  {normalPlaces.map((place, index) => (
+                    <Draggable key={place.id} draggableId={String(place.id)} index={index}>
+                      {(provided, snapshot) => (
+                        <div 
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={`bg-white rounded-2xl border transition p-5 md:p-6 shadow-sm ${snapshot.isDragging ? 'shadow-lg border-blue-400 ring-2 ring-blue-100 z-50' : 'border-slate-200 hover:border-slate-300'}`}
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-start gap-3">
+                              <div {...provided.dragHandleProps} className="text-slate-300 hover:text-slate-500 cursor-grab mt-1">
+                                <GripVertical className="w-5 h-5" />
+                              </div>
+                              <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-sm font-bold flex items-center justify-center mt-0.5 shrink-0">
+                                {index + 1}
+                              </span>
+                              <div>
+                                <h3 className="font-bold text-slate-800 text-lg">{place.name}</h3>
+                                <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5 mb-2">
+                                  <MapPin className="w-3 h-3" />
+                                  {place.lat.toFixed(4)}, {place.lng.toFixed(4)}
+                                </div>
+                                {/* 景點遊記顯示 */}
+                                {place.description && (
+                                  <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-2xl">
+                                    {place.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-1 md:gap-2 shrink-0">
+                              <label className="p-2 md:px-3 md:py-2 bg-blue-50 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-100 transition flex items-center gap-1.5 cursor-pointer">
+                                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />} 
+                                <span className="hidden md:inline">{uploading ? '上傳中...' : '加入照片'}</span>
+                                <input type="file" accept="image/*" multiple onChange={(e) => handleMultiplePhotoUpload(e, place.id)} disabled={uploading} className="hidden" />
+                              </label>
+                              <button 
+                                onClick={() => {
+                                  setEditingPlace(place);
+                                  setPlaceFormData({ name: place.name, description: place.description || '', lat: place.lat, lng: place.lng });
+                                  setIsPlaceModalOpen(true);
+                                }}
+                                className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition"
+                                title="編輯景點與遊記"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleDeletePlace(place.id)}
+                                className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition"
+                                title="刪除景點"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 照片展示區：橫向捲動 */}
+                          {photos.filter(p => p.place_id === place.id).length > 0 && (
+                            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 scrollbar-thin scrollbar-thumb-slate-200 mt-4">
+                              {photos.filter(p => p.place_id === place.id).map((photo, pIndex) => (
+                                <div key={photo.id} className="snap-start shrink-0 w-48 md:w-56 relative group flex flex-col">
+                                  <div 
+                                    className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
+                                    onClick={() => openLightbox(place.id, pIndex)}
+                                  >
+                                    <img 
+                                      src={photo.url} 
+                                      alt={photo.description || '景點照片'} 
+                                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                                    />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition"></div>
+                                  </div>
+                                  
+                                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all z-10">
+                                    <button 
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setEditingPhoto(photo); 
+                                        setPhotoEditDesc(photo.description || ''); 
+                                        setIsPhotoEditModalOpen(true); 
+                                      }}
+                                      className="p-1.5 bg-black/50 text-white rounded-full hover:bg-blue-500 transition-all"
+                                      title="編輯照片描述"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id); }}
+                                      className="p-1.5 bg-black/50 text-white rounded-full hover:bg-red-500 transition-all"
+                                      title="刪除照片"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+
+                                  <div className="mt-2 text-xs text-slate-600 font-medium px-1 flex-1 flex flex-col">
+                                    <span className="line-clamp-2" title={photo.description}>{photo.description || <span className="text-slate-400 italic font-normal">無描述 (點擊鉛筆編輯)</span>}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                  {normalPlaces.length === 0 && (
+                    <div className="text-center py-20 text-slate-400 flex flex-col items-center">
+                      <MapPin className="w-12 h-12 mb-3 text-slate-200" />
+                      <p className="text-sm font-medium">目前尚無景點，點擊上方按鈕開始規劃</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        </div>
+      </aside>
+
+      {/* 新增旅程 Modal */}
+      {isAddTripModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-bold text-lg">建立新旅程</h3>
+              <button onClick={() => setIsAddTripModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+            </div>
+            <form onSubmit={handleCreateTrip} className="p-5">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">旅程名稱</label>
+              <input 
+                type="text" 
+                autoFocus
+                placeholder="例如：2026 東京之旅" 
+                value={newTripName} 
+                onChange={e => setNewTripName(e.target.value)} 
+                className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+              />
+              <div className="mt-6 flex justify-end gap-2">
+                <button type="button" onClick={() => setIsAddTripModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
+                <button type="submit" className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm">建立</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 照片描述快速編輯 Modal */}
+      {isPhotoEditModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-bold text-lg">編輯照片描述</h3>
+              <button onClick={() => setIsPhotoEditModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+            </div>
+            <div className="p-5">
+              <textarea 
+                autoFocus
+                placeholder="輸入關於這張照片的回憶..." 
+                value={photoEditDesc} 
+                onChange={e => setPhotoEditDesc(e.target.value)} 
+                className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm min-h-[100px] resize-none" 
+              />
+              <div className="mt-6 flex justify-end gap-2">
+                <button type="button" onClick={() => setIsPhotoEditModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
+                <button type="button" onClick={() => {
+                  handleSavePhotoDesc(editingPhoto, photoEditDesc);
+                  setIsPhotoEditModalOpen(false);
+                }} className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm">儲存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 新增/編輯景點 Modal */}
+      {isPlaceModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white z-10">
+              <h3 className="font-bold text-lg">{editingPlace ? '編輯景點與遊記' : '新增景點與遊記'}</h3>
+              <button onClick={() => setIsPlaceModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+            </div>
+            
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+              {/* 地圖選取區 */}
+              <div className="flex-1 h-[40vh] md:h-full bg-slate-100 relative">
+                {isLoaded ? (
+                  <GoogleMapComponent 
+                    selectionMode={true}
+                    defaultLat={placeFormData.lat} 
+                    defaultLng={placeFormData.lng} 
+                    onLocationSelect={(lat: any, lng: any) => setPlaceFormData(prev => ({ ...prev, lat, lng }))} 
+                  />
+                ) : (
+                  <div className="flex-1 bg-slate-100 flex items-center justify-center text-slate-400">Google 地圖載入中...</div>
+                )}
+              </div>
+              
+              {/* 表單區 */}
+              <div className="w-full md:w-80 p-5 bg-white border-l border-slate-100 flex flex-col shrink-0 overflow-y-auto">
+                <form onSubmit={handleSavePlace} className="flex-1 flex flex-col gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">景點名稱</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="例如：Taipei 101" 
+                        value={placeFormData.name} 
+                        onChange={e => setPlaceFormData(prev => ({ ...prev, name: e.target.value }))} 
+                        className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+                      />
+                      <button 
+                        type="button"
+                        onClick={handleSearchLocation}
+                        disabled={searchingLocation || !placeFormData.name}
+                        className="p-2.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition disabled:opacity-50 shrink-0"
+                        title="透過 Google Maps 搜尋座標"
+                      >
+                        {searchingLocation ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">緯度 (Lat)</label>
+                      <input 
+                        type="number" step="any" required
+                        value={placeFormData.lat} 
+                        onChange={e => setPlaceFormData(prev => ({ ...prev, lat: parseFloat(e.target.value) || 0 }))} 
+                        className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm bg-slate-50" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">經度 (Lng)</label>
+                      <input 
+                        type="number" step="any" required
+                        value={placeFormData.lng} 
+                        onChange={e => setPlaceFormData(prev => ({ ...prev, lng: parseFloat(e.target.value) || 0 }))} 
+                        className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm bg-slate-50" 
+                      />
+                    </div>
+                  </div>
+
+                  {/* 遊記輸入區塊 */}
+                  <div className="flex-1 flex flex-col">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center justify-between">
+                      景點遊記 / 簡略紀錄
+                      <span className="text-xs text-slate-400 font-normal">Optional</span>
+                    </label>
+                    <textarea 
+                      placeholder="寫下您在這個景點的美好回憶..." 
+                      value={placeFormData.description} 
+                      onChange={e => setPlaceFormData(prev => ({ ...prev, description: e.target.value }))} 
+                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm flex-1 min-h-[120px] resize-none" 
+                    />
+                  </div>
+                  
+                  <div className="pt-4 flex justify-end gap-2 border-t border-slate-100 mt-2">
+                    <button type="button" onClick={() => setIsPlaceModalOpen(false)} className="flex-1 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
+                    <button type="submit" className="flex-1 py-2.5 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition shadow-sm">
+                      {editingPlace ? '儲存變更' : '新增景點'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 照片放大 Lightbox 包含編輯功能 */}
+      {lightboxOpen && lightboxPhotos.length > 0 && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col items-center animate-in fade-in duration-200"
+          {...swipeHandlers}
+        >
+          <div className="absolute top-0 w-full p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/50 to-transparent">
+            <div className="text-white/70 text-sm font-medium px-2">
+              {currentPhotoIndex + 1} / {lightboxPhotos.length}
+            </div>
+            <button onClick={closeLightbox} className="p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition backdrop-blur-sm">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          
+          <button onClick={prevPhoto} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm hidden md:block z-20">
+            <ChevronLeft className="w-8 h-8" />
+          </button>
+          
+          <button onClick={nextPhoto} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm hidden md:block z-20">
+            <ChevronRight className="w-8 h-8" />
+          </button>
+
+          <div className="flex-1 w-full max-w-7xl flex items-center justify-center p-4 overflow-hidden relative z-10">
+            <img 
+              src={lightboxPhotos[currentPhotoIndex].url} 
+              alt="Fullscreen" 
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" 
+            />
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
