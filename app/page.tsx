@@ -478,9 +478,32 @@ export default function TravelMapApp() {
               <Navigation className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
               我的旅程
             </h2>
-            <button onClick={() => setIsAddTripModalOpen(true)} className="p-1 md:p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition shadow-sm" title="新增旅程">
-              <Plus className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1.5 md:gap-2">
+              {/* 手機版：把智慧上傳跟新增景點移到這裡 */}
+              <div className="flex md:hidden items-center gap-1.5">
+                <label className={`p-1.5 rounded-full cursor-pointer transition ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`} title="智慧上傳照片">
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  <input type="file" accept="image/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
+                </label>
+                <button 
+                  onClick={() => {
+                    setEditingPlace(null);
+                    setPlaceFormData({ name: '', lat: 35.2048, lng: 139.0253, description: '' });
+                    setIsPlaceModalOpen(true);
+                  }}
+                  disabled={!selectedTrip}
+                  className="p-1.5 bg-slate-800 text-white rounded-full disabled:opacity-50 hover:bg-slate-700 transition"
+                  title="新增景點"
+                >
+                  <MapPin className="w-4 h-4" />
+                </button>
+                <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
+              </div>
+              
+              <button onClick={() => setIsAddTripModalOpen(true)} className="p-1.5 md:p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition shadow-sm" title="新增旅程">
+                <Plus className="w-4 h-4 md:w-5 md:h-5" />
+              </button>
+            </div>
           </div>
           {/* 行程橫向/直向滾動區塊 */}
           <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto p-2 gap-2 md:p-2">
@@ -503,7 +526,7 @@ export default function TravelMapApp() {
       {/* 右半邊：景點與照片列表 (80% 寬度) */}
       <aside className="flex-1 flex flex-col w-full md:w-4/5 h-full bg-slate-50 z-10 min-h-0">
         
-        <div className="p-4 md:p-6 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm shrink-0">
+        <div className="hidden md:flex p-4 md:p-6 border-b border-slate-200 bg-white justify-between items-center shadow-sm shrink-0">
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-slate-800">{selectedTrip?.name || '請選擇旅程'}</h1>
             <p className="text-sm text-slate-500 mt-1">規劃您的精彩景點與回憶</p>
