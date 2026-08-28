@@ -563,7 +563,7 @@ export default function TravelMapApp() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8">
+        <div className="flex-1 overflow-y-auto p-2 md:p-6 space-y-4 md:space-y-8">
           
           {/* 未分配照片區塊 */}
           {unassignedPlace && photos.filter(p => p.place_id === unassignedPlace.id).length > 0 && (
@@ -575,7 +575,7 @@ export default function TravelMapApp() {
               </div>
               <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 scrollbar-thin scrollbar-thumb-orange-200">
                 {photos.filter(p => p.place_id === unassignedPlace.id).map((photo, pIndex) => (
-                  <div key={photo.id} className="snap-start shrink-0 w-[60vw] sm:w-56 md:w-64 lg:w-72 relative group">
+                  <div key={photo.id} className="snap-start shrink-0 w-[75vw] sm:w-56 md:w-64 lg:w-72 relative group">
                     <div 
                       className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
                       onClick={() => openLightbox(unassignedPlace.id, pIndex)}
@@ -616,7 +616,7 @@ export default function TravelMapApp() {
                         <div 
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className={`bg-white rounded-2xl border transition p-5 md:p-6 shadow-sm ${snapshot.isDragging ? 'shadow-lg border-blue-400 ring-2 ring-blue-100 z-50' : 'border-slate-200 hover:border-slate-300'}`}
+                          className={`bg-white rounded-2xl border transition p-3 md:p-6 shadow-sm ${snapshot.isDragging ? 'shadow-lg border-blue-400 ring-2 ring-blue-100 z-50' : 'border-slate-200 hover:border-slate-300'}`}
                         >
                           <div className="flex justify-between items-start mb-4">
                             <div className="flex items-start gap-3">
@@ -670,9 +670,9 @@ export default function TravelMapApp() {
 
                           {/* 照片展示區：橫向捲動 */}
                           {photos.filter(p => p.place_id === place.id).length > 0 && (
-                            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 scrollbar-thin scrollbar-thumb-slate-200 mt-4">
+                            <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 md:gap-4 pb-2 scrollbar-thin scrollbar-thumb-slate-200 mt-4">
                               {photos.filter(p => p.place_id === place.id).map((photo, pIndex) => (
-                                <div key={photo.id} className="snap-start shrink-0 w-[70vw] sm:w-64 md:w-72 lg:w-80 relative group flex flex-col">
+                                <div key={photo.id} className="snap-start shrink-0 w-[85vw] sm:w-72 md:w-72 lg:w-80 relative group flex flex-col">
                                   <div 
                                     className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
                                     onClick={() => openLightbox(place.id, pIndex)}
