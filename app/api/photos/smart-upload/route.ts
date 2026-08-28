@@ -24,6 +24,11 @@ function deg2rad(deg: number) {
 
 export async function POST(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.API_SECRET_KEY}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const trip_id = formData.get('trip_id') as string;

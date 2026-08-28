@@ -26,6 +26,18 @@ export default function TravelMapApp() {
   
   const [uploading, setUploading] = useState(false);
   
+  const getAuthHeaders = (extraHeaders: any = {}) => {
+    let token = localStorage.getItem('adminToken');
+    if (!token) {
+      token = prompt('安全驗證：請輸入管理員密碼以執行此操作 (API_SECRET_KEY)');
+      if (token) localStorage.setItem('adminToken', token);
+    }
+    return {
+      'Authorization': token ? `Bearer ${token}` : '',
+      ...extraHeaders
+    };
+  };
+  
   // Modals state
   const [isAddTripModalOpen, setIsAddTripModalOpen] = useState(false);
   const [newTripName, setNewTripName] = useState('');
@@ -264,7 +276,9 @@ export default function TravelMapApp() {
       const uploadPromises = Array.from(files).map(async (file: any) => {
         // 1. Get Presigned URL
         const ext = file.name.split('.').pop() || 'jpg';
-        const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`);
+        const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`, {
+          headers: getAuthHeaders()
+        });
         const urlData = await urlRes.json();
         
         if (!urlData.success) throw new Error('無法取得上傳網址');
@@ -293,7 +307,7 @@ export default function TravelMapApp() {
         // Let's modify smart-assign to accept an optional `place_id` override.
         return fetch('/api/photos/smart-assign', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             trip_id: selectedTrip?.id,
             photoUrl: urlData.publicUrl,
@@ -342,7 +356,9 @@ export default function TravelMapApp() {
 
         // 2. 取得 Presigned URL
         const ext = file.name.split('.').pop() || 'jpg';
-        const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`);
+        const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`, {
+          headers: getAuthHeaders()
+        });
         const urlData = await urlRes.json();
         
         if (!urlData.success) throw new Error('無法取得上傳網址');
@@ -357,7 +373,7 @@ export default function TravelMapApp() {
         // 4. 通知後端寫入 DB 並自動分配景點
         return fetch('/api/photos/smart-assign', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             trip_id: selectedTrip.id,
             photoUrl: urlData.publicUrl,
@@ -383,7 +399,7 @@ export default function TravelMapApp() {
     try {
       await fetch('/api/photos', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ ...photo, place_id: newPlaceId })
       });
       if (selectedTrip) fetchPlaces(selectedTrip.id);
@@ -396,7 +412,7 @@ export default function TravelMapApp() {
     try {
       await fetch('/api/photos', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ ...photo, description: newDesc })
       });
       if (selectedTrip) fetchPlaces(selectedTrip.id);
@@ -408,7 +424,10 @@ export default function TravelMapApp() {
   const handleDeletePhoto = async (photoId: any) => {
     if (!confirm('確定要刪除這張照片嗎？')) return;
     try {
-      const res = await fetch(`/api/photos?id=${photoId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/photos?id=${photoId}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       const json = await res.json();
       if (json.success && selectedTrip) fetchPlaces(selectedTrip.id);
     } catch (err) {

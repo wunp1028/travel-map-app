@@ -6,6 +6,11 @@ import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.API_SECRET_KEY}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const contentType = searchParams.get('contentType');
     const extension = searchParams.get('extension') || 'jpg';

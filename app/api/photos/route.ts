@@ -27,6 +27,11 @@ export async function GET(request: Request) {
 // PUT: 手動修改照片資訊 (標籤、描述)
 export async function PUT(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.API_SECRET_KEY}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id, category, tags, description, place_id } = await request.json();
 
     const { data, error } = await supabase
@@ -45,6 +50,11 @@ export async function PUT(request: Request) {
 // DELETE: 刪除照片
 export async function DELETE(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.API_SECRET_KEY}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
