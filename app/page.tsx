@@ -541,7 +541,7 @@ export default function TravelMapApp() {
               </div>
               <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 scrollbar-thin scrollbar-thumb-orange-200">
                 {photos.filter(p => p.place_id === unassignedPlace.id).map((photo, pIndex) => (
-                  <div key={photo.id} className="snap-start shrink-0 w-48 md:w-56 relative group">
+                  <div key={photo.id} className="snap-start shrink-0 w-[60vw] sm:w-56 md:w-64 lg:w-72 relative group">
                     <div 
                       className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
                       onClick={() => openLightbox(unassignedPlace.id, pIndex)}
@@ -638,7 +638,7 @@ export default function TravelMapApp() {
                           {photos.filter(p => p.place_id === place.id).length > 0 && (
                             <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 scrollbar-thin scrollbar-thumb-slate-200 mt-4">
                               {photos.filter(p => p.place_id === place.id).map((photo, pIndex) => (
-                                <div key={photo.id} className="snap-start shrink-0 w-48 md:w-56 relative group flex flex-col">
+                                <div key={photo.id} className="snap-start shrink-0 w-[70vw] sm:w-64 md:w-72 lg:w-80 relative group flex flex-col">
                                   <div 
                                     className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
                                     onClick={() => openLightbox(place.id, pIndex)}
