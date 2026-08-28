@@ -30,6 +30,9 @@ export default function TravelMapApp() {
   const [isAddTripModalOpen, setIsAddTripModalOpen] = useState(false);
   const [newTripName, setNewTripName] = useState('');
 
+  // 展開/收合狀態
+  const [isMapExpanded, setIsMapExpanded] = useState(true);
+  const [isTripListExpanded, setIsTripListExpanded] = useState(true);
   const [isPlaceModalOpen, setIsPlaceModalOpen] = useState(false);
   const [editingPlace, setEditingPlace] = useState<any | null>(null);
   const [placeFormData, setPlaceFormData] = useState({ name: '', lat: 35.2048, lng: 139.0253, description: '' });
@@ -474,9 +477,14 @@ export default function TravelMapApp() {
         </div>
         <div className="flex-none md:flex-1 bg-slate-50 shadow-sm z-10 border-t border-slate-200">
           <div className="p-2 md:p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
-            <h2 className="font-bold text-sm md:text-lg text-slate-800 flex items-center gap-2">
+            <h2 
+              className="font-bold text-sm md:text-lg text-slate-800 flex items-center gap-2 cursor-pointer hover:text-blue-600 transition"
+              onClick={() => setIsTripListExpanded(!isTripListExpanded)}
+              title="點擊展開/收合旅程列表"
+            >
               <Navigation className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
               我的旅程
+              {isTripListExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
             </h2>
             <div className="flex items-center gap-1.5 md:gap-2">
               {/* 手機版：把智慧上傳跟新增景點移到這裡 */}
@@ -506,19 +514,24 @@ export default function TravelMapApp() {
             </div>
           </div>
           {/* 行程橫向/直向滾動區塊 */}
-          <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto p-2 gap-2 md:p-2">
-            {trips.map(trip => (
-              <div 
-                key={trip.id}
-                onClick={() => setSelectedTrip(trip)}
-                className={`flex-none w-48 md:w-auto p-3 md:p-4 rounded-xl cursor-pointer transition border ${selectedTrip?.id === trip.id ? 'bg-white border-blue-300 shadow-md ring-1 ring-blue-100' : 'bg-white border-slate-200 hover:border-blue-200 hover:shadow-sm'}`}
-              >
-                <div className={`font-bold ${selectedTrip?.id === trip.id ? 'text-blue-700' : 'text-slate-800'}`}>{trip.name}</div>
-                <div className="text-xs text-slate-400 mt-1">
-                  {new Date(trip.start_date || trip.created_at).toLocaleDateString()}
+          <div className={`transition-all duration-300 ${isTripListExpanded ? 'opacity-100' : 'h-0 opacity-0 overflow-hidden'}`}>
+            <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto p-2 gap-2 md:p-2">
+              {trips.map(trip => (
+                <div 
+                  key={trip.id}
+                  onClick={() => {
+                    setSelectedTrip(trip);
+                    if (window.innerWidth < 768) setIsTripListExpanded(false); // 手機版選擇後自動收合
+                  }}
+                  className={`flex-none w-48 md:w-auto p-3 md:p-4 rounded-xl cursor-pointer transition border ${selectedTrip?.id === trip.id ? 'bg-white border-blue-300 shadow-md ring-1 ring-blue-100' : 'bg-white border-slate-200 hover:border-blue-200 hover:shadow-sm'}`}
+                >
+                  <div className={`font-bold ${selectedTrip?.id === trip.id ? 'text-blue-700' : 'text-slate-800'}`}>{trip.name}</div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    {new Date(trip.start_date || trip.created_at).toLocaleDateString()}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -617,7 +630,7 @@ export default function TravelMapApp() {
                               </span>
                               <div>
                                 <h3 className="font-bold text-slate-800 text-lg">{place.name}</h3>
-                                <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5 mb-2">
+                                <div className="hidden md:flex text-xs text-slate-400 items-center gap-1 mt-0.5 mb-2">
                                   <MapPin className="w-3 h-3" />
                                   {place.lat.toFixed(4)}, {place.lng.toFixed(4)}
                                 </div>
@@ -778,8 +791,8 @@ export default function TravelMapApp() {
 
       {/* 新增/編輯景點 Modal */}
       {isPlaceModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl h-[95vh] md:h-[85vh] flex flex-col overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 py-8 md:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white z-10">
               <h3 className="font-bold text-lg">{editingPlace ? '編輯景點與遊記' : '新增景點與遊記'}</h3>
               <button onClick={() => setIsPlaceModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
