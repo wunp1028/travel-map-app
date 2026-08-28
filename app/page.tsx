@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera } from 'lucide-react';
+import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useSwipeable } from 'react-swipeable';
@@ -54,6 +54,9 @@ export default function TravelMapApp() {
   const [isPhotoEditModalOpen, setIsPhotoEditModalOpen] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState<any | null>(null);
   const [photoEditDesc, setPhotoEditDesc] = useState('');
+  
+  // --- 新增：管理模式 ---
+  const [isManageMode, setIsManageMode] = useState(false);
 
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -573,6 +576,15 @@ export default function TravelMapApp() {
               <input type="file" accept="image/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
             </label>
             <button 
+              onClick={() => setIsManageMode(!isManageMode)}
+              disabled={!selectedTrip}
+              className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 ${isManageMode ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              title="批次管理照片"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden md:inline">{isManageMode ? '完成管理' : '管理照片'}</span>
+            </button>
+            <button 
               onClick={() => {
                 setEditingPlace(null);
                 setPlaceFormData({ name: '', lat: 35.2048, lng: 139.0253, description: '' });
@@ -619,7 +631,7 @@ export default function TravelMapApp() {
                     </select>
                     <button 
                       onClick={() => handleDeletePhoto(photo.id)}
-                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-red-500 transition-all z-10"
+                      className={`absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-red-500 transition-all z-10 ${isManageMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 md:opacity-100'}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -709,7 +721,7 @@ export default function TravelMapApp() {
                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition"></div>
                                   </div>
                                   
-                                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all z-10">
+                                  <div className={`absolute top-2 right-2 flex flex-col gap-2 transition-all z-10 ${isManageMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                                     <button 
                                       onClick={(e) => { 
                                         e.stopPropagation(); 
