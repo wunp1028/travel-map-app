@@ -147,26 +147,28 @@ export default function TravelMapApp() {
     if (!placeFormData.name) return;
     setSearchingLocation(true);
     try {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-      if (!apiKey) {
-        alert('請設定 Google Maps API Key');
+      if (!window.google) {
+        alert('Google 地圖尚未載入，請稍後再試');
+        setSearchingLocation(false);
         return;
       }
-      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(placeFormData.name)}&key=${apiKey}`);
-      const data = await res.json();
-      if (data && data.status === 'OK' && data.results.length > 0) {
-        const location = data.results[0].geometry.location;
-        setPlaceFormData(prev => ({ 
-          ...prev, 
-          lat: location.lat, 
-          lng: location.lng 
-        }));
-      } else {
-        alert('找不到該地點，請嘗試輸入更完整的名稱');
-      }
+      
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ address: placeFormData.name }, (results, status) => {
+        if (status === 'OK' && results && results.length > 0) {
+          const location = results[0].geometry.location;
+          setPlaceFormData(prev => ({ 
+            ...prev, 
+            lat: location.lat(), 
+            lng: location.lng() 
+          }));
+        } else {
+          alert('找不到該地點，請嘗試輸入更完整的名稱');
+        }
+        setSearchingLocation(false);
+      });
     } catch (err) {
       console.error('搜尋地點失敗', err);
-    } finally {
       setSearchingLocation(false);
     }
   };
