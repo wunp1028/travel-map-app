@@ -450,7 +450,7 @@ export default function TravelMapApp() {
   const unassignedPlace = useMemo(() => places.find(p => p.name === '未分配照片區'), [places]);
 
   return (
-    <main className="flex flex-col md:flex-row h-screen bg-slate-50 text-slate-800 font-sans overflow-hidden">
+    <main className="flex flex-col md:flex-row h-[100dvh] bg-slate-50 text-slate-800 font-sans overflow-hidden pt-[env(safe-area-inset-top)]">
       
       {/* 左半邊：地圖 + 旅程列表 (20% 寬度) */}
       <section className="flex flex-col w-full md:w-1/5 flex-none md:flex-auto md:h-full border-b md:border-b-0 md:border-r border-slate-200">
