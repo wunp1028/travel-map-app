@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings } from 'lucide-react';
+import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings, Clock, Grid } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useSwipeable } from 'react-swipeable';
@@ -64,8 +64,9 @@ export default function TravelMapApp() {
   const [photoEditDesc, setPhotoEditDesc] = useState('');
   const [photoEditPlaceId, setPhotoEditPlaceId] = useState('');
   
-  // --- 新增：管理模式 ---
+  // --- 新增：管理模式與檢視模式 ---
   const [isManageMode, setIsManageMode] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'timeline'>('card');
 
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -528,9 +529,17 @@ export default function TravelMapApp() {
               我的旅程
               {isTripListExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
             </h2>
-            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="flex items-center gap-1.5 md:gap-2">
               {/* 手機版：把智慧上傳跟新增景點移到這裡 */}
               <div className="flex md:hidden items-center gap-1.5">
+                <button 
+                  onClick={() => setViewMode(prev => prev === 'card' ? 'timeline' : 'card')}
+                  disabled={!selectedTrip}
+                  className="p-1.5 rounded-full transition disabled:opacity-50 bg-slate-100 text-slate-700"
+                  title="切換瀏覽模式"
+                >
+                  {viewMode === 'card' ? <Clock className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
+                </button>
                 <button 
                   onClick={() => setIsManageMode(!isManageMode)}
                   disabled={!selectedTrip}
@@ -595,6 +604,15 @@ export default function TravelMapApp() {
             <p className="text-sm text-slate-500 mt-1">規劃您的精彩景點與回憶</p>
           </div>
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setViewMode(prev => prev === 'card' ? 'timeline' : 'card')}
+              disabled={!selectedTrip}
+              className="hidden md:flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition disabled:opacity-50"
+              title="切換瀏覽模式"
+            >
+              {viewMode === 'card' ? <Clock className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
+              <span>{viewMode === 'card' ? '時光軸模式' : '卡片模式'}</span>
+            </button>
             <label className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-medium hover:bg-indigo-100 transition cursor-pointer disabled:opacity-50" title="上傳照片並自動分配到最近的景點">
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               <span className="hidden md:inline">{uploading ? '智慧上傳中...' : '智慧上傳照片'}</span>
@@ -667,10 +685,11 @@ export default function TravelMapApp() {
           )}
 
           {/* 正常景點區塊 */}
-          <DragDropContext onDragEnd={onDragEnd}>
-            <Droppable droppableId="places-list">
-              {(provided) => (
-                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-6">
+          {viewMode === 'card' ? (
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable droppableId="places-list">
+                {(provided) => (
+                  <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-6">
                   {normalPlaces.map((place, index) => (
                     <Draggable key={place.id} draggableId={String(place.id)} index={index}>
                       {(provided, snapshot) => (
@@ -781,16 +800,68 @@ export default function TravelMapApp() {
                     </Draggable>
                   ))}
                   {provided.placeholder}
-                  {normalPlaces.length === 0 && (
-                    <div className="text-center py-20 text-slate-400 flex flex-col items-center">
-                      <MapPin className="w-12 h-12 mb-3 text-slate-200" />
-                      <p className="text-sm font-medium">目前尚無景點，點擊上方按鈕開始規劃</p>
+                    {normalPlaces.length === 0 && (
+                      <div className="text-center py-20 text-slate-400 flex flex-col items-center">
+                        <MapPin className="w-12 h-12 mb-3 text-slate-200" />
+                        <p className="text-sm font-medium">目前尚無景點，點擊上方按鈕開始規劃</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          ) : (
+            <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent pt-4">
+              {normalPlaces.map((place, index) => {
+                const placePhotos = photos.filter(p => p.place_id === place.id);
+                if (placePhotos.length === 0 && !place.description) return null; // 隱藏空景點
+                return (
+                  <div key={place.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    {/* 中間的圈圈節點 */}
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-slate-50 bg-blue-100 text-blue-700 text-sm font-bold shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                      {index + 1}
                     </div>
-                  )}
-                </div>
+                    
+                    {/* 內容卡片 */}
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 md:p-6 rounded-3xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MapPin className="w-4 h-4 text-blue-500" />
+                        <h3 className="font-bold text-slate-800 text-lg">{place.name}</h3>
+                      </div>
+                      
+                      {place.description && (
+                        <p className="text-sm text-slate-600 mb-4 bg-slate-50 p-4 rounded-2xl leading-relaxed whitespace-pre-wrap">
+                          {place.description}
+                        </p>
+                      )}
+                      
+                      {placePhotos.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {placePhotos.map((photo, pIndex) => (
+                            <div 
+                              key={photo.id} 
+                              className="aspect-square rounded-xl overflow-hidden cursor-pointer relative group/photo shadow-sm"
+                              onClick={() => openLightbox(place.id, pIndex)}
+                            >
+                              <img src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
+                              {photo.description && (
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/photo:opacity-100 transition duration-300 flex items-end p-2.5">
+                                  <span className="text-[10px] text-white line-clamp-3 leading-tight drop-shadow-md">{photo.description}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {normalPlaces.length === 0 && (
+                <div className="text-center py-20 text-slate-400">目前尚無景點，請先在卡片模式新增</div>
               )}
-            </Droppable>
-          </DragDropContext>
+            </div>
+          )}
         </div>
       </aside>
 
