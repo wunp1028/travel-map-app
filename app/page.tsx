@@ -12,6 +12,14 @@ const GoogleMapComponent = dynamic(() => import('../components/GoogleMapComponen
 
 const libraries: any[] = [];
 
+const chunkArray = (array: any[], size: number) => {
+  const result = [];
+  for (let i = 0; i < array.length; i += size) {
+    result.push(array.slice(i, i + size));
+  }
+  return result;
+};
+
 export default function TravelMapApp() {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -54,6 +62,7 @@ export default function TravelMapApp() {
   const [isPhotoEditModalOpen, setIsPhotoEditModalOpen] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState<any | null>(null);
   const [photoEditDesc, setPhotoEditDesc] = useState('');
+  const [photoEditPlaceId, setPhotoEditPlaceId] = useState('');
   
   // --- 新增：管理模式 ---
   const [isManageMode, setIsManageMode] = useState(false);
@@ -281,51 +290,55 @@ export default function TravelMapApp() {
 
     setUploading(true);
     try {
-      const uploadPromises = Array.from(files).map(async (file: any) => {
-        // 1. Get Presigned URL
-        const ext = file.name.split('.').pop() || 'jpg';
-        const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`, {
-          headers: getAuthHeaders()
-        });
-        const urlData = await urlRes.json();
-        
-        if (!urlData.success) throw new Error('無法取得上傳網址');
+      const filesArray = Array.from(files) as any[];
+      const chunks = chunkArray(filesArray, 3); // 每次同時處理 3 張照片，兼顧速度與穩定性
+      
+      for (const chunk of chunks) {
+        await Promise.all(chunk.map(async (file: any) => {
+          // 1. Get Presigned URL
+          const ext = file.name.split('.').pop() || 'jpg';
+          const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`, {
+            headers: getAuthHeaders()
+          });
+          const urlData = await urlRes.json();
+          
+          if (!urlData.success) throw new Error('無法取得上傳網址');
 
-        // 2. Upload directly to R2
-        await fetch(urlData.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type },
-          body: file
-        });
+          // 2. Upload directly to R2
+          await fetch(urlData.uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': file.type },
+            body: file
+          });
 
-        // 3. (Optional) Parse EXIF to get photo time (no GPS assignment needed here)
-        let photoTime = new Date().toISOString();
-        try {
-          const exif = await exifr.parse(file);
-          if (exif && exif.DateTimeOriginal) {
-            photoTime = new Date(exif.DateTimeOriginal).toISOString();
+          // 3. (Optional) Parse EXIF to get photo time (no GPS assignment needed here)
+          let photoTime = new Date().toISOString();
+          try {
+            const exif = await exifr.parse(file);
+            if (exif && exif.DateTimeOriginal) {
+              photoTime = new Date(exif.DateTimeOriginal).toISOString();
+            }
+          } catch(err) {
+            console.log('No EXIF time');
           }
-        } catch(err) {
-          console.log('No EXIF time');
-        }
 
-        // 4. Save to database using a generic assign route or similar.
-        // Wait, the old `/api/photos/upload` also existed!
-        // We can use `smart-assign` and pass `placeId` explicitly!
-        // Let's modify smart-assign to accept an optional `place_id` override.
-        return fetch('/api/photos/smart-assign', {
-          method: 'POST',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            trip_id: selectedTrip?.id,
-            photoUrl: urlData.publicUrl,
-            photoTime,
-            override_place_id: placeId
-          })
-        });
-      });
+          // 4. Save to database using a generic assign route or similar.
+          // Wait, the old `/api/photos/upload` also existed!
+          // We can use `smart-assign` and pass `placeId` explicitly!
+          // Let's modify smart-assign to accept an optional `place_id` override.
+          await fetch('/api/photos/smart-assign', {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              trip_id: selectedTrip?.id,
+              photoUrl: urlData.publicUrl,
+              photoTime,
+              override_place_id: placeId
+            })
+          });
+        }));
+      }
 
-      await Promise.all(uploadPromises);
       if (selectedTrip) fetchPlaces(selectedTrip.id);
     } catch (err) {
       console.error('批次上傳照片錯誤', err);
@@ -341,58 +354,62 @@ export default function TravelMapApp() {
 
     setUploading(true);
     try {
-      const uploadPromises = Array.from(files).map(async (file: any) => {
-        // 1. 解析 EXIF
-        let gpsLat = null;
-        let gpsLng = null;
-        let photoTime = new Date().toISOString();
-        
-        try {
-          const exif = await exifr.parse(file);
-          if (exif) {
-            if (exif.latitude && exif.longitude) {
-              gpsLat = exif.latitude;
-              gpsLng = exif.longitude;
+      const filesArray = Array.from(files) as any[];
+      const chunks = chunkArray(filesArray, 3); // 每次同時處理 3 張照片
+      
+      for (const chunk of chunks) {
+        await Promise.all(chunk.map(async (file: any) => {
+          // 1. 解析 EXIF
+          let gpsLat = null;
+          let gpsLng = null;
+          let photoTime = new Date().toISOString();
+          
+          try {
+            const exif = await exifr.parse(file);
+            if (exif) {
+              if (exif.latitude && exif.longitude) {
+                gpsLat = exif.latitude;
+                gpsLng = exif.longitude;
+              }
+              if (exif.DateTimeOriginal) {
+                photoTime = new Date(exif.DateTimeOriginal).toISOString();
+              }
             }
-            if (exif.DateTimeOriginal) {
-              photoTime = new Date(exif.DateTimeOriginal).toISOString();
-            }
+          } catch(err) {
+            console.log('EXIF parse error', err);
           }
-        } catch(err) {
-          console.log('EXIF parse error', err);
-        }
 
-        // 2. 取得 Presigned URL
-        const ext = file.name.split('.').pop() || 'jpg';
-        const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`, {
-          headers: getAuthHeaders()
-        });
-        const urlData = await urlRes.json();
-        
-        if (!urlData.success) throw new Error('無法取得上傳網址');
+          // 2. 取得 Presigned URL
+          const ext = file.name.split('.').pop() || 'jpg';
+          const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`, {
+            headers: getAuthHeaders()
+          });
+          const urlData = await urlRes.json();
+          
+          if (!urlData.success) throw new Error('無法取得上傳網址');
 
-        // 3. 直傳檔案到 Cloudflare R2
-        await fetch(urlData.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type },
-          body: file
-        });
+          // 3. 直傳檔案到 Cloudflare R2
+          await fetch(urlData.uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': file.type },
+            body: file
+          });
 
-        // 4. 通知後端寫入 DB 並自動分配景點
-        return fetch('/api/photos/smart-assign', {
-          method: 'POST',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            trip_id: selectedTrip.id,
-            photoUrl: urlData.publicUrl,
-            gpsLat,
-            gpsLng,
-            photoTime
-          })
-        });
-      });
+          // 4. 通知後端寫入 DB 並自動分配景點
+          await fetch('/api/photos/smart-assign', {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              trip_id: selectedTrip.id,
+              photoUrl: urlData.publicUrl,
+              gpsLat,
+              gpsLng,
+              photoTime
+            })
+          });
+        }));
+      }
 
-      await Promise.all(uploadPromises);
       fetchPlaces(selectedTrip.id);
     } catch (err) {
       console.error('智慧上傳照片錯誤', err);
@@ -416,12 +433,12 @@ export default function TravelMapApp() {
     }
   };
 
-  const handleSavePhotoDesc = async (photo: any, newDesc: string) => {
+  const handleSavePhotoDesc = async (photo: any, newDesc: string, newPlaceId: string) => {
     try {
       await fetch('/api/photos', {
         method: 'PUT',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ ...photo, description: newDesc })
+        body: JSON.stringify({ ...photo, description: newDesc, place_id: newPlaceId })
       });
       if (selectedTrip) fetchPlaces(selectedTrip.id);
     } catch (err) {
@@ -735,6 +752,7 @@ export default function TravelMapApp() {
                                         e.stopPropagation(); 
                                         setEditingPhoto(photo); 
                                         setPhotoEditDesc(photo.description || ''); 
+                                        setPhotoEditPlaceId(photo.place_id || '');
                                         setIsPhotoEditModalOpen(true); 
                                       }}
                                       className="p-1.5 bg-black/50 text-white rounded-full hover:bg-blue-500 transition-all"
@@ -811,18 +829,33 @@ export default function TravelMapApp() {
               <h3 className="font-bold text-lg">編輯照片描述</h3>
               <button onClick={() => setIsPhotoEditModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
             </div>
-            <div className="p-5">
-              <textarea 
-                autoFocus
-                placeholder="輸入關於這張照片的回憶..." 
-                value={photoEditDesc} 
-                onChange={e => setPhotoEditDesc(e.target.value)} 
-                className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm min-h-[100px] resize-none" 
-              />
-              <div className="mt-6 flex justify-end gap-2">
+            <div className="p-5 flex flex-col gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">所屬景點</label>
+                <select 
+                  value={photoEditPlaceId}
+                  onChange={e => setPhotoEditPlaceId(e.target.value)}
+                  className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm bg-white"
+                >
+                  {places.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">照片描述</label>
+                <textarea 
+                  autoFocus
+                  placeholder="輸入關於這張照片的回憶..." 
+                  value={photoEditDesc} 
+                  onChange={e => setPhotoEditDesc(e.target.value)} 
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm min-h-[100px] resize-none" 
+                />
+              </div>
+              <div className="mt-2 flex justify-end gap-2">
                 <button type="button" onClick={() => setIsPhotoEditModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
                 <button type="button" onClick={() => {
-                  handleSavePhotoDesc(editingPhoto, photoEditDesc);
+                  handleSavePhotoDesc(editingPhoto, photoEditDesc, photoEditPlaceId);
                   setIsPhotoEditModalOpen(false);
                 }} className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm">儲存</button>
               </div>

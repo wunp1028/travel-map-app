@@ -60,9 +60,15 @@ export default function GoogleMapComponent({
       if (hasValidCoords) {
         // 使用 setTimeout 確保容器高度已經撐開再設定 bounds，避免初始加載時沒反應
         setTimeout(() => {
-          mapInstance.fitBounds(bounds, {
-            top: 50, right: 50, bottom: 50, left: 50
-          });
+          const validPlaces = places.filter(p => p.lat && p.lng);
+          if (validPlaces.length === 1) {
+            mapInstance.setCenter({ lat: validPlaces[0].lat, lng: validPlaces[0].lng });
+            mapInstance.setZoom(14);
+          } else {
+            mapInstance.fitBounds(bounds, {
+              top: 50, right: 50, bottom: 50, left: 50
+            });
+          }
         }, 100);
       }
     }

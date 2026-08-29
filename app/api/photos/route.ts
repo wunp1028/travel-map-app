@@ -15,6 +15,9 @@ export async function GET(request: Request) {
     if (category) query = query.eq('category', category);
     if (place_id) query = query.eq('place_id', place_id);
 
+    // 依拍照時間排序
+    query = query.order('photo_time', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
+
     const { data, error } = await query;
 
     if (error) throw error;
