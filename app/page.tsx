@@ -707,7 +707,7 @@ export default function TravelMapApp() {
         <div className="order-1 md:order-2 flex-none md:flex-1 bg-slate-50 shadow-sm z-20 md:z-10 border-t-0 md:border-t border-slate-200">
           <div className="px-3 py-2.5 md:p-4 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-md sticky top-0 z-30">
             <h2 
-              className="font-bold text-[15px] md:text-lg text-slate-800 flex items-center gap-1.5 cursor-pointer hover:text-blue-600 transition truncate max-w-[130px] md:max-w-full shrink-0"
+              className="flex-1 font-bold text-[15px] md:text-lg text-slate-800 flex items-center gap-1.5 cursor-pointer hover:text-blue-600 transition truncate min-w-0 pr-2"
               onClick={() => setIsTripListExpanded(!isTripListExpanded)}
               title="點擊展開/收合旅程列表"
             >
@@ -715,7 +715,7 @@ export default function TravelMapApp() {
               <span className="truncate">{selectedTrip?.name || '我的旅程'}</span>
               {isTripListExpanded ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
             </h2>
-            <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pl-2 shrink-0">
+            <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
               {/* 手機版：精簡第一層與更多選單 (iOS Style) */}
               <div className="flex md:hidden items-center gap-2 shrink-0">
                 <button 
