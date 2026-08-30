@@ -1448,11 +1448,11 @@ export default function TravelMapApp() {
             </button>
           </div>
           
-          <button onClick={prevPhoto} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm z-20">
+          <button onClick={prevPhoto} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm hidden md:block z-20">
             <ChevronLeft className="w-8 h-8" />
           </button>
           
-          <button onClick={nextPhoto} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm z-20">
+          <button onClick={nextPhoto} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm hidden md:block z-20">
             <ChevronRight className="w-8 h-8" />
           </button>
 
@@ -1461,13 +1461,20 @@ export default function TravelMapApp() {
               <video src={lightboxPhotos[currentPhotoIndex].url} controls autoPlay playsInline className="max-w-full max-h-full object-contain" />
             ) : (
               <TransformWrapper>
-                <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
-                  <img 
-                    src={lightboxPhotos[currentPhotoIndex].url} 
-                    alt="Fullscreen" 
-                    className="max-w-full max-h-full object-contain" 
-                  />
-                </TransformComponent>
+                {({ state }: any) => (
+                  <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
+                    <div 
+                      className="w-full h-full flex items-center justify-center"
+                      {...(state.scale <= 1.05 ? swipeHandlers : {})}
+                    >
+                      <img 
+                        src={lightboxPhotos[currentPhotoIndex].url} 
+                        alt="Fullscreen" 
+                        className="max-w-full max-h-full object-contain pointer-events-auto" 
+                      />
+                    </div>
+                  </TransformComponent>
+                )}
               </TransformWrapper>
             )}
           </div>
