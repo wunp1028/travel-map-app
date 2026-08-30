@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/clients';
+import { adminSupabase } from '@/lib/clients';
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('music')
       .select('*');
 
