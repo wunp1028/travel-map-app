@@ -988,16 +988,15 @@ export default function TravelMapApp() {
                           className={`bg-white rounded-2xl border transition p-3 md:p-6 shadow-sm ${snapshot.isDragging ? 'shadow-lg border-blue-400 ring-2 ring-blue-100 z-50' : 'border-slate-200 hover:border-slate-300'}`}
                         >
                           <div className="flex justify-between items-start mb-4">
-                            <div className="flex items-start gap-3">
-                              <div {...provided.dragHandleProps} className="text-slate-300 hover:text-slate-500 cursor-grab mt-1">
+                            <div className="flex items-start gap-3 w-full">
+                              <div {...provided.dragHandleProps} className="text-slate-300 hover:text-slate-500 cursor-grab mt-1 shrink-0">
                                 <GripVertical className="w-5 h-5" />
                               </div>
                               <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-sm font-bold flex items-center justify-center mt-0.5 shrink-0">
                                 {index + 1}
                               </span>
-                            <div className="flex items-center gap-1 md:gap-2 shrink-0">
                               <div 
-                                className="group cursor-pointer rounded-lg -ml-2 p-2 hover:bg-slate-50 transition"
+                                className="group cursor-pointer rounded-lg -ml-2 p-2 hover:bg-slate-50 transition flex-1 min-w-0"
                                 onClick={() => {
                                   setEditingPlace(place);
                                   setPlaceFormData({ name: place.name, description: place.description || '', lat: place.lat, lng: place.lng });
@@ -1005,17 +1004,17 @@ export default function TravelMapApp() {
                                 }}
                                 title="點擊編輯景點與遊記"
                               >
-                                <h3 className="font-bold text-slate-800 text-lg group-hover:text-blue-600 transition flex items-center gap-2">
+                                <h3 className="font-bold text-slate-800 text-lg group-hover:text-blue-600 transition flex items-center gap-2 truncate">
                                   {place.name}
-                                  <Edit2 className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition" />
+                                  <Edit2 className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition shrink-0" />
                                 </h3>
-                                <div className="hidden md:flex text-xs text-slate-400 items-center gap-1 mt-0.5 mb-2">
-                                  <MapPin className="w-3 h-3" />
-                                  {place.lat.toFixed(4)}, {place.lng.toFixed(4)}
+                                <div className="hidden md:flex text-xs text-slate-400 items-center gap-1 mt-0.5 mb-2 truncate">
+                                  <MapPin className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{place.lat.toFixed(4)}, {place.lng.toFixed(4)}</span>
                                 </div>
                                 {/* 景點遊記顯示 */}
                                 {place.description && (
-                                  <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-2xl mt-1">
+                                  <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-2xl mt-1 break-words">
                                     {place.description}
                                   </p>
                                 )}
