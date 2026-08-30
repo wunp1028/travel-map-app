@@ -70,6 +70,10 @@ export default function GoogleMapComponent({
             });
           }
         }, 100);
+      } else {
+        // No places, fallback to default center
+        mapInstance.setCenter(defaultCenter);
+        mapInstance.setZoom(9);
       }
     }
   }, [placesKey, selectionMode, mapInstance]);

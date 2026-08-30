@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings, Clock, Grid, Play } from 'lucide-react';
+import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings, Clock, Grid, Play, Paperclip, FileText } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useSwipeable } from 'react-swipeable';
@@ -34,6 +34,9 @@ export default function TravelMapApp() {
   const [selectedTrip, setSelectedTrip] = useState<any | null>(null);
   const [places, setPlaces] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [tripPlans, setTripPlans] = useState<any[]>([]);
+  const [isTripPlansModalOpen, setIsTripPlansModalOpen] = useState(false);
+  const [uploadingPlan, setUploadingPlan] = useState(false);
   
   const [uploading, setUploading] = useState(false);
   
@@ -125,9 +128,24 @@ export default function TravelMapApp() {
     if (selectedTrip) {
       setPlaces([]); // 切換旅程時先清空舊景點，避免殘留或重疊
       setPhotos([]);
+      setTripPlans([]);
       fetchPlaces(selectedTrip.id);
+      fetchTripPlans(selectedTrip.id);
     }
   }, [selectedTrip]);
+
+  const fetchTripPlans = async (tripId: string | number) => {
+    if (!tripId) return;
+    try {
+      const res = await fetch(`/api/trip_plans?trip_id=${tripId}`);
+      const json = await res.json();
+      if (json.success) {
+        setTripPlans(json.data || []);
+      }
+    } catch (err) {
+      console.error('載入行程附件失敗', err);
+    }
+  };
 
   const fetchPlaces = async (tripId: string | number) => {
     if (!tripId) return;
@@ -490,6 +508,67 @@ export default function TravelMapApp() {
     }
   };
 
+  const handlePlanUpload = async (e: any) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !selectedTrip) return;
+
+    setUploadingPlan(true);
+    try {
+      const filesArray = Array.from(files) as any[];
+      for (const file of filesArray) {
+        // 1. Get Presigned URL
+        const ext = file.name.split('.').pop() || 'tmp';
+        const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type || 'application/octet-stream'}&extension=${ext}`, {
+          headers: getAuthHeaders()
+        });
+        const urlData = await urlRes.json();
+        
+        if (!urlData.success) throw new Error('無法取得上傳網址');
+
+        // 2. Upload directly to R2
+        await fetch(urlData.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file
+        });
+
+        // 3. Save to database
+        await fetch('/api/trip_plans', {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            trip_id: selectedTrip.id,
+            appendix: file.name,
+            url: urlData.publicUrl
+          })
+        });
+      }
+      fetchTripPlans(selectedTrip.id);
+    } catch (err) {
+      console.error('上傳附件失敗', err);
+      alert('上傳失敗: ' + (err as Error).message);
+    } finally {
+      setUploadingPlan(false);
+      e.target.value = '';
+    }
+  };
+
+  const handlePlanDelete = async (planId: any) => {
+    if (!confirm('確定要刪除這個附件嗎？')) return;
+    try {
+      const res = await fetch(`/api/trip_plans?id=${planId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const json = await res.json();
+      if (json.success && selectedTrip) {
+        fetchTripPlans(selectedTrip.id);
+      }
+    } catch (err) {
+      console.error('刪除附件錯誤', err);
+    }
+  };
+
   const handleReassignPhoto = async (photo: any, newPlaceId: any) => {
     try {
       await fetch('/api/photos', {
@@ -641,6 +720,25 @@ export default function TravelMapApp() {
                 >
                   <MapPin className="w-4 h-4" />
                 </button>
+                <button 
+                  onClick={() => {
+                    setEditTripData({ id: selectedTrip.id, name: selectedTrip.name, start_date: selectedTrip.start_date ? new Date(selectedTrip.start_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0], end_date: selectedTrip.end_date ? new Date(selectedTrip.end_date).toISOString().split('T')[0] : '' });
+                    setIsEditTripModalOpen(true);
+                  }}
+                  disabled={!selectedTrip}
+                  className="p-1.5 text-slate-500 rounded-full hover:bg-slate-100 transition disabled:opacity-50"
+                  title="編輯旅程"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsTripPlansModalOpen(true)}
+                  disabled={!selectedTrip}
+                  className="p-1.5 text-slate-500 rounded-full hover:bg-slate-100 transition disabled:opacity-50"
+                  title="行程附件"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
                 <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
               </div>
               
@@ -713,6 +811,15 @@ export default function TravelMapApp() {
             >
               <Play className="w-4 h-4" />
               <span>播放幻燈片</span>
+            </button>
+            <button
+              onClick={() => setIsTripPlansModalOpen(true)}
+              disabled={!selectedTrip}
+              className="hidden md:flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition disabled:opacity-50"
+              title="檢視行程附件"
+            >
+              <Paperclip className="w-4 h-4" />
+              <span>行程附件</span>
             </button>
             <label className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-medium hover:bg-indigo-100 transition cursor-pointer disabled:opacity-50" title="上傳照片並自動分配到最近的景點">
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -999,7 +1106,7 @@ export default function TravelMapApp() {
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
                 />
               </div>
-              <div className="flex gap-2 mb-4">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">開始時間</label>
                   <input 
@@ -1048,7 +1155,7 @@ export default function TravelMapApp() {
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
                 />
               </div>
-              <div className="flex gap-2 mb-4">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">開始時間</label>
                   <input 
@@ -1150,7 +1257,7 @@ export default function TravelMapApp() {
       {/* 隨機幻燈片短影音 Modal */}
       {isSlideshowOpen && slideshowMedia.length > 0 && (
         <div className="fixed inset-0 bg-black z-[110] flex flex-col items-center justify-center animate-in fade-in duration-300">
-          <div className="absolute top-4 right-4 z-[999] pointer-events-auto">
+          <div className="absolute top-14 right-6 z-[999] pointer-events-auto">
             <button onClick={() => setIsSlideshowOpen(false)} className="p-3 text-white hover:text-pink-100 bg-black/40 hover:bg-black/60 rounded-full transition backdrop-blur-md border border-white/10 shadow-lg">
               <X className="w-6 h-6" />
             </button>
@@ -1365,6 +1472,59 @@ export default function TravelMapApp() {
                 </TransformComponent>
               </TransformWrapper>
             )}
+          </div>
+        </div>
+      )}
+      {/* 行程附件 Modal */}
+      {isTripPlansModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl">
+            <div className="p-4 md:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Paperclip className="w-5 h-5 text-blue-600" />
+                <h3 className="text-lg font-bold text-slate-800">行程附件管理</h3>
+              </div>
+              <button onClick={() => setIsTripPlansModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 md:p-6 overflow-y-auto flex-1 bg-white">
+              <div className="mb-6">
+                <label className="flex items-center justify-center gap-2 w-full p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 hover:border-blue-300 transition cursor-pointer text-slate-500">
+                  {uploadingPlan ? <Loader2 className="w-6 h-6 animate-spin text-blue-500" /> : <UploadCloud className="w-6 h-6" />}
+                  <span className="font-medium">{uploadingPlan ? '上傳中...' : '點擊上傳附件 (PDF, Word, Excel, 圖片)'}</span>
+                  <input type="file" onChange={handlePlanUpload} disabled={uploadingPlan || !selectedTrip} className="hidden" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" />
+                </label>
+              </div>
+
+              {tripPlans.length > 0 ? (
+                <div className="space-y-3">
+                  {tripPlans.map((plan: any) => (
+                    <div key={plan.id || plan.url} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50 hover:bg-white hover:border-blue-200 hover:shadow-sm transition">
+                      <a href={plan.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 flex-1 min-w-0 group">
+                        <div className="p-2 bg-blue-100 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <span className="font-medium text-slate-700 truncate group-hover:text-blue-600 transition">{plan.appendix || '未命名附件'}</span>
+                      </a>
+                      <button 
+                        onClick={() => handlePlanDelete(plan.id || plan.url)} 
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition ml-4 flex-shrink-0"
+                        title="刪除附件"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400">
+                  <FileText className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p>目前沒有任何附件</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
