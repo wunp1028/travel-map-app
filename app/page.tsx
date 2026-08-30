@@ -638,25 +638,49 @@ export default function TravelMapApp() {
 
     let startX = 0;
     let startY = 0;
-    const onPointerDown = (e: PointerEvent) => {
-      startX = e.clientX;
-      startY = e.clientY;
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      const endX = e.clientX;
-      const endY = e.clientY;
-      const diffX = startX - endX;
-      const diffY = startY - endY;
+    let startTime = 0;
+    let lastSwipeTime = 0;
 
-      if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY) * 1.5 && lightboxScale <= 1.05) {
+    const handleStart = (clientX: number, clientY: number) => {
+      startX = clientX;
+      startY = clientY;
+      startTime = Date.now();
+    };
+
+    const handleEnd = (clientX: number, clientY: number) => {
+      if (Date.now() - lastSwipeTime < 300) return; // Prevent double trigger from both touch and pointer
+
+      const diffX = startX - clientX;
+      const diffY = startY - clientY;
+      const timeDiff = Date.now() - startTime;
+      const velocityX = Math.abs(diffX) / timeDiff;
+
+      if ((Math.abs(diffX) > 40 || velocityX > 0.4) && Math.abs(diffX) > Math.abs(diffY) * 1.5 && lightboxScale <= 1.05) {
         if (diffX > 0) nextPhoto();
         else prevPhoto();
+        lastSwipeTime = Date.now();
       }
     };
 
+    const onTouchStart = (e: TouchEvent) => handleStart(e.touches[0].clientX, e.touches[0].clientY);
+    const onTouchEnd = (e: TouchEvent) => handleEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') return; // Ignore mouse click/drag for this swipe
+      handleStart(e.clientX, e.clientY);
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') return;
+      handleEnd(e.clientX, e.clientY);
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    el.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
     el.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true });
     el.addEventListener('pointerup', onPointerUp, { capture: true, passive: true });
+
     return () => {
+      el.removeEventListener('touchstart', onTouchStart, { capture: true });
+      el.removeEventListener('touchend', onTouchEnd, { capture: true });
       el.removeEventListener('pointerdown', onPointerDown, { capture: true });
       el.removeEventListener('pointerup', onPointerUp, { capture: true });
     };
@@ -1495,6 +1519,11 @@ export default function TravelMapApp() {
                         alt="Fullscreen" 
                         className="max-w-full max-h-full object-contain pointer-events-auto" 
                       />
+                      {/* 預載入上一張與下一張，讓切換瞬間無延遲 */}
+                      <div className="hidden">
+                        <img src={lightboxPhotos[(currentPhotoIndex + 1) % lightboxPhotos.length]?.url} />
+                        <img src={lightboxPhotos[(currentPhotoIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length]?.url} />
+                      </div>
                     </div>
                   </TransformComponent>
                 )}
