@@ -694,38 +694,36 @@ export default function TravelMapApp() {
       {/* 左半邊：地圖 + 旅程列表 (20% 寬度) */}
       <section className="flex flex-col w-full md:w-1/5 flex-none md:flex-auto md:h-full border-b md:border-b-0 md:border-r border-slate-200">
         
-        {/* 手機版：展開收合地圖按鈕 */}
-        <div 
-          className="md:hidden flex items-center justify-between px-4 py-3 bg-slate-800 text-white font-medium cursor-pointer shadow-md z-20"
-          onClick={() => setIsMapExpanded(!isMapExpanded)}
-        >
-          <span className="flex items-center"><MapPin className="w-4 h-4 mr-2 text-blue-400" /> 地圖預覽</span>
-          <span className="flex items-center text-sm text-slate-300">
-            {isMapExpanded ? <><ChevronUp className="w-4 h-4 mr-1"/> 收合</> : <><ChevronDown className="w-4 h-4 mr-1"/> 展開</>}
-          </span>
-        </div>
 
-        <div className={`${isMapExpanded ? 'h-[40vh]' : 'h-0 hidden'} md:h-auto md:flex-[3] relative bg-slate-200 z-0 transition-all duration-300`}>
+
+        <div className={`order-2 md:order-1 ${isMapExpanded ? 'h-[40vh]' : 'h-0 hidden'} md:h-auto md:flex-[3] relative bg-slate-200 z-0 transition-all duration-300`}>
           {isLoaded ? (
             <GoogleMapComponent places={normalPlaces} photos={photos} selectionMode={false} />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">Google 地圖載入中...</div>
           )}
         </div>
-        <div className="flex-none md:flex-1 bg-slate-50 shadow-sm z-10 border-t border-slate-200">
-          <div className="px-4 py-2 md:p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
+        <div className="order-1 md:order-2 flex-none md:flex-1 bg-slate-50 shadow-sm z-20 md:z-10 border-t-0 md:border-t border-slate-200">
+          <div className="px-3 py-2.5 md:p-4 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-md sticky top-0 z-30">
             <h2 
-              className="font-bold text-sm md:text-lg text-slate-800 flex items-center gap-2 cursor-pointer hover:text-blue-600 transition"
+              className="font-bold text-[15px] md:text-lg text-slate-800 flex items-center gap-1.5 cursor-pointer hover:text-blue-600 transition truncate max-w-[130px] md:max-w-full shrink-0"
               onClick={() => setIsTripListExpanded(!isTripListExpanded)}
               title="點擊展開/收合旅程列表"
             >
-              <Navigation className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
-              我的旅程
-              {isTripListExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              <Navigation className="w-4 h-4 md:w-5 md:h-5 text-blue-600 shrink-0" />
+              <span className="truncate">{selectedTrip?.name || '我的旅程'}</span>
+              {isTripListExpanded ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
             </h2>
-              <div className="flex items-center gap-1.5 md:gap-2">
-              {/* 手機版：把智慧上傳跟新增景點移到這裡 */}
-              <div className="flex md:hidden items-center gap-1.5">
+            <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pl-2 shrink-0">
+              {/* 手機版：工具列與地圖開關 */}
+              <div className="flex md:hidden items-center gap-1.5 shrink-0">
+                <button 
+                  onClick={() => setIsMapExpanded(!isMapExpanded)}
+                  className={`p-1.5 rounded-full transition shrink-0 ${isMapExpanded ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
+                  title="地圖預覽"
+                >
+                  <MapPin className="w-4 h-4" />
+                </button>
                 <button 
                   onClick={() => setViewMode(prev => prev === 'card' ? 'timeline' : 'card')}
                   disabled={!selectedTrip}
@@ -788,7 +786,7 @@ export default function TravelMapApp() {
                 <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
               </div>
               
-              <button onClick={() => setIsAddTripModalOpen(true)} className="p-1.5 md:p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition shadow-sm" title="新增旅程">
+              <button onClick={() => setIsAddTripModalOpen(true)} className="p-1.5 md:p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition shadow-sm shrink-0" title="新增旅程">
                 <Plus className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
