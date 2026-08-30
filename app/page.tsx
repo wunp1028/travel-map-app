@@ -1391,18 +1391,21 @@ export default function TravelMapApp() {
       {/* 隨機幻燈片短影音 Modal */}
       {isSlideshowOpen && slideshowMedia.length > 0 && (
         <div className="fixed inset-0 bg-black z-[110] flex flex-col items-center justify-center animate-in fade-in duration-300">
-          <div className="absolute top-14 right-6 z-[999] pointer-events-auto flex flex-col gap-3">
+          <div className="absolute top-14 right-6 z-[999] pointer-events-auto">
+            <button onClick={() => { setIsSlideshowOpen(false); setIsSlideshowMuted(false); }} className="p-3 text-white hover:text-pink-100 bg-black/40 hover:bg-black/60 rounded-full transition backdrop-blur-md border border-white/10 shadow-lg" title="關閉幻燈片">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="absolute bottom-10 right-6 z-[999] pointer-events-auto">
             <button 
               onClick={() => {
                 if (isGlobalMusicOn) setIsGlobalMusicOn(false); // 如果全域有開，幻燈片靜音就順便關掉全域
                 setIsSlideshowMuted(!isSlideshowMuted);
               }} 
               className="p-3 text-white hover:text-pink-100 bg-black/40 hover:bg-black/60 rounded-full transition backdrop-blur-md border border-white/10 shadow-lg"
+              title="音樂開關"
             >
               {(!isSlideshowMuted || isGlobalMusicOn) ? <Music className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-            </button>
-            <button onClick={() => { setIsSlideshowOpen(false); setIsSlideshowMuted(false); }} className="p-3 text-white hover:text-pink-100 bg-black/40 hover:bg-black/60 rounded-full transition backdrop-blur-md border border-white/10 shadow-lg">
-              <X className="w-6 h-6" />
             </button>
           </div>
           <div className="flex-1 w-full h-full flex items-center justify-center relative overflow-hidden bg-black">
