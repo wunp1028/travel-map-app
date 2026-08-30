@@ -90,6 +90,7 @@ export default function TravelMapApp() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [lightboxPhotos, setLightboxPhotos] = useState<any[]>([]);
   const [lightboxDescInput, setLightboxDescInput] = useState('');
+  const [lightboxScale, setLightboxScale] = useState(1);
 
 
   useEffect(() => {
@@ -629,12 +630,37 @@ export default function TravelMapApp() {
     setLightboxDescInput(lightboxPhotos[prevIdx]?.description || '');
   };
 
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => nextPhoto(),
-    onSwipedRight: () => prevPhoto(),
-    trackMouse: true
-  });
+  const lightboxRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const el = lightboxRef.current;
+    if (!lightboxOpen || !el || lightboxPhotos.length === 0) return;
+
+    let startX = 0;
+    let startY = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
+      const diffX = startX - endX;
+      const diffY = startY - endY;
+
+      if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY) * 1.5 && lightboxScale <= 1.05) {
+        if (diffX > 0) nextPhoto();
+        else prevPhoto();
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    el.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart, { capture: true });
+      el.removeEventListener('touchend', onTouchEnd, { capture: true });
+    };
+  }, [lightboxOpen, lightboxScale, lightboxPhotos, currentPhotoIndex]);
   const normalPlaces = useMemo(() => places.filter(p => p.name !== '未分配照片區'), [places]);
   const unassignedPlace = useMemo(() => places.find(p => p.name === '未分配照片區'), [places]);
 
@@ -1436,8 +1462,8 @@ export default function TravelMapApp() {
       {/* 照片放大 Lightbox 包含編輯功能 */}
       {lightboxOpen && lightboxPhotos.length > 0 && (
         <div 
+          ref={lightboxRef}
           className="fixed inset-0 z-[100] bg-black flex flex-col items-center animate-in fade-in duration-200"
-          {...swipeHandlers}
         >
           <div className="absolute top-0 w-full p-4 pt-[calc(1rem+env(safe-area-inset-top))] flex justify-between items-center z-20 bg-gradient-to-b from-black/50 to-transparent">
             <div className="text-white/70 text-sm font-medium px-2">
@@ -1448,24 +1474,21 @@ export default function TravelMapApp() {
             </button>
           </div>
           
-          <button onClick={prevPhoto} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm hidden md:block z-20">
-            <ChevronLeft className="w-8 h-8" />
-          </button>
-          
-          <button onClick={nextPhoto} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm hidden md:block z-20">
-            <ChevronRight className="w-8 h-8" />
-          </button>
+
 
           <div className="flex-1 w-full max-w-7xl flex items-center justify-center overflow-hidden relative z-10">
             {isVideo(lightboxPhotos[currentPhotoIndex].url) ? (
               <video src={lightboxPhotos[currentPhotoIndex].url} controls autoPlay playsInline className="max-w-full max-h-full object-contain" />
             ) : (
-              <TransformWrapper>
+              <TransformWrapper
+                onZoomStop={(ref) => setLightboxScale(ref.state.scale)}
+                onPanningStop={(ref) => setLightboxScale(ref.state.scale)}
+                panning={{ disabled: lightboxScale <= 1.05 }}
+              >
                 {({ state }: any) => (
                   <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
                     <div 
                       className="w-full h-full flex items-center justify-center"
-                      {...(state.scale <= 1.05 ? swipeHandlers : {})}
                     >
                       <img 
                         src={lightboxPhotos[currentPhotoIndex].url} 
