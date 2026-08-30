@@ -168,17 +168,13 @@ export default function TravelMapApp() {
       return;
     }
     try {
-      const allPhotos: any[] = [];
-      for (const pid of placeIds) {
-        const res = await fetch(`/api/photos?place_id=${pid}`);
-        const json = await res.json();
-        if (json.success) {
-          allPhotos.push(...(json.data || []));
-        }
+      const res = await fetch(`/api/photos?place_ids=${placeIds.join(',')}`);
+      const json = await res.json();
+      if (json.success) {
+        setPhotos(json.data || []);
       }
-      setPhotos(allPhotos);
     } catch (err) {
-      console.error('載入照片失敗', err);
+      console.error('載入所有照片失敗', err);
     }
   };
 
@@ -1268,25 +1264,27 @@ export default function TravelMapApp() {
                 key={media.id + '_' + index}
                 className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === currentSlideshowIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
               >
-                {isVideo(media.url) ? (
-                  <video 
-                    src={media.url} 
-                    autoPlay 
-                    playsInline 
-                    muted
-                    loop={!slideshowConfig.playFullVideo}
-                    onEnded={() => {
-                      if (slideshowConfig.playFullVideo) {
-                        setCurrentSlideshowIndex((prev) => (prev + 1) % slideshowMedia.length);
-                      }
-                    }}
-                    className="w-full h-full object-contain" 
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                    <img src={media.url} className="w-full h-full object-contain scale-105" />
-                  </div>
-                )}
+                {Math.abs(index - currentSlideshowIndex) <= 1 || (index === slideshowMedia.length - 1 && currentSlideshowIndex === 0) || (index === 0 && currentSlideshowIndex === slideshowMedia.length - 1) ? (
+                  isVideo(media.url) ? (
+                    <video 
+                      src={media.url} 
+                      autoPlay 
+                      playsInline 
+                      muted
+                      loop={!slideshowConfig.playFullVideo}
+                      onEnded={() => {
+                        if (slideshowConfig.playFullVideo) {
+                          setCurrentSlideshowIndex((prev) => (prev + 1) % slideshowMedia.length);
+                        }
+                      }}
+                      className="w-full h-full object-contain" 
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                      <img src={media.url} className="w-full h-full object-contain scale-105" />
+                    </div>
+                  )
+                ) : null}
               </div>
             ))}
           </div>
@@ -1450,11 +1448,11 @@ export default function TravelMapApp() {
             </button>
           </div>
           
-          <button onClick={prevPhoto} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm hidden md:block z-20">
+          <button onClick={prevPhoto} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm z-20">
             <ChevronLeft className="w-8 h-8" />
           </button>
           
-          <button onClick={nextPhoto} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm hidden md:block z-20">
+          <button onClick={nextPhoto} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition backdrop-blur-sm z-20">
             <ChevronRight className="w-8 h-8" />
           </button>
 

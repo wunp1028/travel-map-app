@@ -8,12 +8,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const place_id = searchParams.get('place_id');
+    const place_ids = searchParams.get('place_ids');
 
     let query = adminSupabase.from('photos').select('*');
     
     // 動態加入過濾條件
     if (category) query = query.eq('category', category);
     if (place_id) query = query.eq('place_id', place_id);
+    if (place_ids) query = query.in('place_id', place_ids.split(','));
 
     // 依拍照時間排序
     query = query.order('photo_time', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
