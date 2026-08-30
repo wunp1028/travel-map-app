@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings, Clock, Grid, Play, Paperclip, FileText, Map } from 'lucide-react';
+import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings, Clock, Grid, Play, Paperclip, FileText, Map, Music, VolumeX } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
@@ -93,10 +93,57 @@ export default function TravelMapApp() {
   const [lightboxDescInput, setLightboxDescInput] = useState('');
   const [lightboxScale, setLightboxScale] = useState(1);
 
+  const [musicList, setMusicList] = useState<any[]>([]);
+  const [isGlobalMusicOn, setIsGlobalMusicOn] = useState(false);
+  const [isSlideshowMuted, setIsSlideshowMuted] = useState(false);
+  const [currentMusicUrl, setCurrentMusicUrl] = useState('');
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     fetchTrips();
+    fetchMusic();
   }, []);
+
+  const fetchMusic = async () => {
+    try {
+      const res = await fetch('/api/music');
+      const json = await res.json();
+      if (json.success && json.data.length > 0) {
+        setMusicList(json.data);
+      }
+    } catch (err) {
+      console.error('載入音樂失敗', err);
+    }
+  };
+
+  const playRandomMusic = () => {
+    if (musicList.length === 0) return;
+    const randomIndex = Math.floor(Math.random() * musicList.length);
+    setCurrentMusicUrl(musicList[randomIndex].url);
+  };
+
+  useEffect(() => {
+    const shouldPlay = isGlobalMusicOn || (isSlideshowOpen && !isSlideshowMuted);
+    if (shouldPlay) {
+      if (!currentMusicUrl && musicList.length > 0) {
+        playRandomMusic();
+      } else if (currentMusicUrl && audioRef.current) {
+        audioRef.current.play().catch(e => console.error('Audio play error:', e));
+      }
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    }
+  }, [isGlobalMusicOn, isSlideshowOpen, isSlideshowMuted, currentMusicUrl, musicList]);
+
+  // Handle auto-play when currentMusicUrl changes
+  useEffect(() => {
+    if (currentMusicUrl && audioRef.current && (isGlobalMusicOn || isSlideshowOpen)) {
+      audioRef.current.play().catch(e => console.error('Audio play error:', e));
+    }
+  }, [currentMusicUrl]);
+
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -690,7 +737,15 @@ export default function TravelMapApp() {
   const unassignedPlace = useMemo(() => places.find(p => p.name === '未分配照片區'), [places]);
 
   return (
-    <main className="flex flex-col md:flex-row h-[100dvh] bg-slate-50 text-slate-800 font-sans overflow-hidden pt-[env(safe-area-inset-top)]">
+    <>
+      {/* 隱藏的背景音樂播放器 */}
+      <audio 
+        ref={audioRef} 
+        src={currentMusicUrl} 
+        onEnded={playRandomMusic}
+        preload="auto"
+      />
+      <main className="flex flex-col md:flex-row h-[100dvh] bg-slate-50 text-slate-800 font-sans overflow-hidden pt-[env(safe-area-inset-top)]">
       
       {/* 左半邊：地圖 + 旅程列表 (20% 寬度) */}
       <section className="flex flex-col w-full md:w-1/5 flex-none md:flex-auto md:h-full border-b md:border-b-0 md:border-r border-slate-200">
@@ -718,6 +773,13 @@ export default function TravelMapApp() {
             <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
               {/* 手機版：精簡第一層與更多選單 (iOS Style) */}
               <div className="flex md:hidden items-center gap-2 shrink-0">
+                <button 
+                  onClick={() => setIsGlobalMusicOn(!isGlobalMusicOn)}
+                  className={`p-2 rounded-full transition shrink-0 ${isGlobalMusicOn ? 'bg-pink-100 text-pink-700' : 'bg-slate-100 text-slate-700'}`}
+                  title="背景音樂"
+                >
+                  {isGlobalMusicOn ? <Music className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                </button>
                 <button 
                   onClick={() => setIsMapExpanded(!isMapExpanded)}
                   className={`p-2 rounded-full transition shrink-0 ${isMapExpanded ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
@@ -871,6 +933,14 @@ export default function TravelMapApp() {
             <p className="text-sm text-slate-500 mt-1">規劃您的精彩景點與回憶</p>
           </div>
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsGlobalMusicOn(!isGlobalMusicOn)}
+              className={`hidden md:flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition ${isGlobalMusicOn ? 'bg-pink-100 text-pink-700 hover:bg-pink-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              title="全域背景音樂"
+            >
+              {isGlobalMusicOn ? <Music className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              <span>{isGlobalMusicOn ? '音樂播放中' : '開啟音樂'}</span>
+            </button>
             <button 
               onClick={() => setViewMode(prev => prev === 'card' ? 'timeline' : 'card')}
               disabled={!selectedTrip}
@@ -1321,8 +1391,17 @@ export default function TravelMapApp() {
       {/* 隨機幻燈片短影音 Modal */}
       {isSlideshowOpen && slideshowMedia.length > 0 && (
         <div className="fixed inset-0 bg-black z-[110] flex flex-col items-center justify-center animate-in fade-in duration-300">
-          <div className="absolute top-14 right-6 z-[999] pointer-events-auto">
-            <button onClick={() => setIsSlideshowOpen(false)} className="p-3 text-white hover:text-pink-100 bg-black/40 hover:bg-black/60 rounded-full transition backdrop-blur-md border border-white/10 shadow-lg">
+          <div className="absolute top-14 right-6 z-[999] pointer-events-auto flex flex-col gap-3">
+            <button 
+              onClick={() => {
+                if (isGlobalMusicOn) setIsGlobalMusicOn(false); // 如果全域有開，幻燈片靜音就順便關掉全域
+                setIsSlideshowMuted(!isSlideshowMuted);
+              }} 
+              className="p-3 text-white hover:text-pink-100 bg-black/40 hover:bg-black/60 rounded-full transition backdrop-blur-md border border-white/10 shadow-lg"
+            >
+              {(!isSlideshowMuted || isGlobalMusicOn) ? <Music className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+            </button>
+            <button onClick={() => { setIsSlideshowOpen(false); setIsSlideshowMuted(false); }} className="p-3 text-white hover:text-pink-100 bg-black/40 hover:bg-black/60 rounded-full transition backdrop-blur-md border border-white/10 shadow-lg">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -1618,5 +1697,6 @@ export default function TravelMapApp() {
         </div>
       )}
     </main>
+    </>
   );
 }
