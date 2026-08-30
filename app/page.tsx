@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings, Clock, Grid, Play, Paperclip, FileText } from 'lucide-react';
+import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings, Clock, Grid, Play, Paperclip, FileText, Map } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
@@ -84,6 +84,7 @@ export default function TravelMapApp() {
   // --- 新增：管理模式與檢視模式 ---
   const [isManageMode, setIsManageMode] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'timeline'>('card');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -715,43 +716,15 @@ export default function TravelMapApp() {
               {isTripListExpanded ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
             </h2>
             <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pl-2 shrink-0">
-              {/* 手機版：工具列與地圖開關 */}
-              <div className="flex md:hidden items-center gap-1.5 shrink-0">
+              {/* 手機版：精簡第一層與更多選單 (iOS Style) */}
+              <div className="flex md:hidden items-center gap-2 shrink-0">
                 <button 
                   onClick={() => setIsMapExpanded(!isMapExpanded)}
-                  className={`p-1.5 rounded-full transition shrink-0 ${isMapExpanded ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
+                  className={`p-2 rounded-full transition shrink-0 ${isMapExpanded ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
                   title="地圖預覽"
                 >
-                  <MapPin className="w-4 h-4" />
+                  <Map className="w-5 h-5" />
                 </button>
-                <button 
-                  onClick={() => setViewMode(prev => prev === 'card' ? 'timeline' : 'card')}
-                  disabled={!selectedTrip}
-                  className="p-1.5 rounded-full transition disabled:opacity-50 bg-slate-100 text-slate-700"
-                  title="切換瀏覽模式"
-                >
-                  {viewMode === 'card' ? <Clock className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
-                </button>
-                <button 
-                  onClick={() => setIsManageMode(!isManageMode)}
-                  disabled={!selectedTrip}
-                  className={`p-1.5 rounded-full transition disabled:opacity-50 ${isManageMode ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}
-                  title="批次管理照片"
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsSlideshowSettingsOpen(true)}
-                  disabled={!selectedTrip || photos.length === 0}
-                  className="p-1.5 rounded-full transition disabled:opacity-50 bg-pink-50 text-pink-700 hover:bg-pink-100"
-                  title="播放幻燈片"
-                >
-                  <Play className="w-4 h-4" />
-                </button>
-                <label className={`p-1.5 rounded-full cursor-pointer transition ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`} title="智慧上傳照片">
-                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  <input type="file" accept="image/*,video/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
-                </label>
                 <button 
                   onClick={() => {
                     setEditingPlace(null);
@@ -759,34 +732,94 @@ export default function TravelMapApp() {
                     setIsPlaceModalOpen(true);
                   }}
                   disabled={!selectedTrip}
-                  className="p-1.5 bg-slate-800 text-white rounded-full disabled:opacity-50 hover:bg-slate-700 transition"
+                  className="p-2 bg-slate-800 text-white rounded-full disabled:opacity-50 hover:bg-slate-700 transition"
                   title="新增景點"
                 >
-                  <MapPin className="w-4 h-4" />
+                  <MapPin className="w-5 h-5" />
                 </button>
-                <button 
-                  onClick={() => {
-                    setEditTripData({ id: selectedTrip.id, name: selectedTrip.name, start_date: selectedTrip.start_date ? new Date(selectedTrip.start_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0], end_date: selectedTrip.end_date ? new Date(selectedTrip.end_date).toISOString().split('T')[0] : '' });
-                    setIsEditTripModalOpen(true);
-                  }}
-                  disabled={!selectedTrip}
-                  className="p-1.5 text-slate-500 rounded-full hover:bg-slate-100 transition disabled:opacity-50"
-                  title="編輯旅程"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsTripPlansModalOpen(true)}
-                  disabled={!selectedTrip}
-                  className="p-1.5 text-slate-500 rounded-full hover:bg-slate-100 transition disabled:opacity-50"
-                  title="行程附件"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </button>
-                <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
+                
+                {/* 更多選項選單 */}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className={`p-2 rounded-full transition ${isMobileMenuOpen ? 'bg-slate-200 text-slate-800' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                    title="更多選項"
+                  >
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
+                  
+                  {isMobileMenuOpen && (
+                    <>
+                      {/* 背景遮罩 (點擊關閉選單) */}
+                      <div className="fixed inset-0 z-40" onClick={() => setIsMobileMenuOpen(false)}></div>
+                      {/* 下拉選單 */}
+                      <div className="absolute right-0 top-full mt-2 w-52 bg-white/95 backdrop-blur-md rounded-xl shadow-lg shadow-black/10 border border-slate-200 py-2 z-50 flex flex-col">
+                        <button
+                          onClick={() => { setIsSlideshowSettingsOpen(true); setIsMobileMenuOpen(false); }}
+                          disabled={!selectedTrip || photos.length === 0}
+                          className="flex items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-40"
+                        >
+                          <Play className="w-5 h-5 text-pink-600" />
+                          <span>播放幻燈片</span>
+                        </button>
+                        <label className={`flex items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer ${uploading || !selectedTrip ? 'opacity-40 pointer-events-none' : ''}`}>
+                          {uploading ? <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" /> : <Sparkles className="w-5 h-5 text-indigo-600" />}
+                          <span>智慧上傳照片</span>
+                          <input type="file" accept="image/*,video/*" multiple onChange={(e) => { handleSmartUpload(e); setIsMobileMenuOpen(false); }} disabled={uploading || !selectedTrip} className="hidden" />
+                        </label>
+                        <div className="h-px bg-slate-100 my-1 mx-3"></div>
+                        <button
+                          onClick={() => { setIsTripPlansModalOpen(true); setIsMobileMenuOpen(false); }}
+                          disabled={!selectedTrip}
+                          className="flex items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-40"
+                        >
+                          <Paperclip className="w-5 h-5 text-slate-500" />
+                          <span>行程附件</span>
+                        </button>
+                        <button
+                          onClick={() => { 
+                            setEditTripData({ id: selectedTrip.id, name: selectedTrip.name, start_date: selectedTrip.start_date ? new Date(selectedTrip.start_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0], end_date: selectedTrip.end_date ? new Date(selectedTrip.end_date).toISOString().split('T')[0] : '' });
+                            setIsEditTripModalOpen(true);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          disabled={!selectedTrip}
+                          className="flex items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-40"
+                        >
+                          <Edit2 className="w-5 h-5 text-slate-500" />
+                          <span>編輯目前旅程</span>
+                        </button>
+                        <div className="h-px bg-slate-100 my-1 mx-3"></div>
+                        <button
+                          onClick={() => { setIsManageMode(!isManageMode); setIsMobileMenuOpen(false); }}
+                          disabled={!selectedTrip}
+                          className="flex items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-40"
+                        >
+                          <Settings className="w-5 h-5 text-amber-600" />
+                          <span>批次管理照片</span>
+                        </button>
+                        <button
+                          onClick={() => { setViewMode(prev => prev === 'card' ? 'timeline' : 'card'); setIsMobileMenuOpen(false); }}
+                          disabled={!selectedTrip}
+                          className="flex items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-40"
+                        >
+                          {viewMode === 'card' ? <Clock className="w-5 h-5 text-slate-500" /> : <Grid className="w-5 h-5 text-slate-500" />}
+                          <span>切換為{viewMode === 'card' ? '時光軸' : '卡片'}模式</span>
+                        </button>
+                        <div className="h-px bg-slate-100 my-1 mx-3"></div>
+                        <button
+                          onClick={() => { setIsAddTripModalOpen(true); setIsMobileMenuOpen(false); }}
+                          className="flex items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-40"
+                        >
+                          <Plus className="w-5 h-5 text-blue-600" />
+                          <span>新增其他旅程</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               
-              <button onClick={() => setIsAddTripModalOpen(true)} className="p-1.5 md:p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition shadow-sm shrink-0" title="新增旅程">
+              <button onClick={() => setIsAddTripModalOpen(true)} className="p-1.5 md:p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition shadow-sm shrink-0 hidden md:block" title="新增旅程">
                 <Plus className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
