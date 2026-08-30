@@ -638,13 +638,13 @@ export default function TravelMapApp() {
 
     let startX = 0;
     let startY = 0;
-    const onTouchStart = (e: TouchEvent) => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
+    const onPointerDown = (e: PointerEvent) => {
+      startX = e.clientX;
+      startY = e.clientY;
     };
-    const onTouchEnd = (e: TouchEvent) => {
-      const endX = e.changedTouches[0].clientX;
-      const endY = e.changedTouches[0].clientY;
+    const onPointerUp = (e: PointerEvent) => {
+      const endX = e.clientX;
+      const endY = e.clientY;
       const diffX = startX - endX;
       const diffY = startY - endY;
 
@@ -654,11 +654,11 @@ export default function TravelMapApp() {
       }
     };
 
-    el.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
-    el.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
+    el.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true });
+    el.addEventListener('pointerup', onPointerUp, { capture: true, passive: true });
     return () => {
-      el.removeEventListener('touchstart', onTouchStart, { capture: true });
-      el.removeEventListener('touchend', onTouchEnd, { capture: true });
+      el.removeEventListener('pointerdown', onPointerDown, { capture: true });
+      el.removeEventListener('pointerup', onPointerUp, { capture: true });
     };
   }, [lightboxOpen, lightboxScale, lightboxPhotos, currentPhotoIndex]);
   const normalPlaces = useMemo(() => places.filter(p => p.name !== '未分配照片區'), [places]);
