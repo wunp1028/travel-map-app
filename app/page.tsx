@@ -53,10 +53,13 @@ export default function TravelMapApp() {
   const [isAddTripModalOpen, setIsAddTripModalOpen] = useState(false);
   const [newTripName, setNewTripName] = useState('');
   const [newTripStartDate, setNewTripStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [newTripEndDate, setNewTripEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   const [isEditTripModalOpen, setIsEditTripModalOpen] = useState(false);
   const [editTripData, setEditTripData] = useState<any>(null);
 
+  const [isSlideshowSettingsOpen, setIsSlideshowSettingsOpen] = useState(false);
+  const [slideshowConfig, setSlideshowConfig] = useState({ speed: 3.5, playFullVideo: true, order: 'random' });
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
   const [slideshowMedia, setSlideshowMedia] = useState<any[]>([]);
   const [currentSlideshowIndex, setCurrentSlideshowIndex] = useState(0);
@@ -93,12 +96,17 @@ export default function TravelMapApp() {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isSlideshowOpen && slideshowMedia.length > 0) {
-      interval = setInterval(() => {
-        setCurrentSlideshowIndex((prev) => (prev + 1) % slideshowMedia.length);
-      }, 3500); // 3.5秒換一張/片
+      const currentMedia = slideshowMedia[currentSlideshowIndex];
+      const isCurrentVideo = isVideo(currentMedia?.url);
+      
+      if (!(isCurrentVideo && slideshowConfig.playFullVideo)) {
+        interval = setInterval(() => {
+          setCurrentSlideshowIndex((prev) => (prev + 1) % slideshowMedia.length);
+        }, slideshowConfig.speed * 1000);
+      }
     }
     return () => clearInterval(interval);
-  }, [isSlideshowOpen, slideshowMedia.length]);
+  }, [isSlideshowOpen, slideshowMedia, currentSlideshowIndex, slideshowConfig.speed, slideshowConfig.playFullVideo]);
 
   const fetchTrips = async () => {
     try {
@@ -163,7 +171,7 @@ export default function TravelMapApp() {
       const res = await fetch('/api/trips', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ name: newTripName, start_date: newTripStartDate })
+        body: JSON.stringify({ name: newTripName, start_date: newTripStartDate, end_date: newTripEndDate })
       });
       const json = await res.json();
       if (json.success) {
@@ -184,7 +192,7 @@ export default function TravelMapApp() {
       const res = await fetch('/api/trips', {
         method: 'PUT',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ id: editTripData.id, name: editTripData.name, start_date: editTripData.start_date })
+        body: JSON.stringify({ id: editTripData.id, name: editTripData.name, start_date: editTripData.start_date, end_date: editTripData.end_date })
       });
       const json = await res.json();
       if (json.success) {
@@ -610,16 +618,7 @@ export default function TravelMapApp() {
                   <Settings className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => {
-                    const tripPhotos = photos.filter(p => true);
-                    for (let i = tripPhotos.length - 1; i > 0; i--) {
-                      const j = Math.floor(Math.random() * (i + 1));
-                      [tripPhotos[i], tripPhotos[j]] = [tripPhotos[j], tripPhotos[i]];
-                    }
-                    setSlideshowMedia(tripPhotos);
-                    setCurrentSlideshowIndex(0);
-                    setIsSlideshowOpen(true);
-                  }}
+                  onClick={() => setIsSlideshowSettingsOpen(true)}
                   disabled={!selectedTrip || photos.length === 0}
                   className="p-1.5 rounded-full transition disabled:opacity-50 bg-pink-50 text-pink-700 hover:bg-pink-100"
                   title="播放幻燈片"
@@ -665,6 +664,7 @@ export default function TravelMapApp() {
                   <div className={`font-bold ${selectedTrip?.id === trip.id ? 'text-blue-700' : 'text-slate-800'}`}>{trip.name}</div>
                   <div className="text-xs text-slate-400 mt-1">
                     {new Date(trip.start_date || trip.created_at).toLocaleDateString()}
+                    {trip.end_date && ` - ${new Date(trip.end_date).toLocaleDateString()}`}
                   </div>
                 </div>
               ))}
@@ -706,17 +706,7 @@ export default function TravelMapApp() {
               <span>{viewMode === 'card' ? '時光軸模式' : '卡片模式'}</span>
             </button>
             <button
-              onClick={() => {
-                const tripPhotos = photos.filter(p => true); // Copy of all photos in current trip
-                // Randomize array
-                for (let i = tripPhotos.length - 1; i > 0; i--) {
-                  const j = Math.floor(Math.random() * (i + 1));
-                  [tripPhotos[i], tripPhotos[j]] = [tripPhotos[j], tripPhotos[i]];
-                }
-                setSlideshowMedia(tripPhotos);
-                setCurrentSlideshowIndex(0);
-                setIsSlideshowOpen(true);
-              }}
+              onClick={() => setIsSlideshowSettingsOpen(true)}
               disabled={!selectedTrip || photos.length === 0}
               className="hidden md:flex items-center gap-2 px-3 py-2 bg-pink-50 text-pink-700 rounded-lg font-medium hover:bg-pink-100 transition disabled:opacity-50"
               title="製作隨機短影音播放"
@@ -773,7 +763,7 @@ export default function TravelMapApp() {
                       {isVideo(photo.url) ? (
                         <video src={photo.url} className="w-full h-full object-cover" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                       ) : (
-                        <img src={photo.url} alt="未分配" className="w-full h-full object-cover" />
+                        <img loading="lazy" src={photo.url} alt="未分配" className="w-full h-full object-cover" />
                       )}
                     </div>
                     {/* 分配下拉選單 */}
@@ -876,6 +866,7 @@ export default function TravelMapApp() {
                                       <video src={photo.url} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                                     ) : (
                                       <img 
+                                        loading="lazy"
                                         src={photo.url} 
                                         alt={photo.description || '景點照片'} 
                                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
@@ -965,7 +956,7 @@ export default function TravelMapApp() {
                               {isVideo(photo.url) ? (
                                 <video src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                               ) : (
-                                <img src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
+                                <img loading="lazy" src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
                               )}
                               {photo.description && (
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/photo:opacity-100 transition duration-300 flex items-end p-2.5">
@@ -1008,14 +999,25 @@ export default function TravelMapApp() {
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">旅程開始時間</label>
-                <input 
-                  type="date" 
-                  value={newTripStartDate} 
-                  onChange={e => setNewTripStartDate(e.target.value)} 
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
-                />
+              <div className="flex gap-2 mb-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">開始時間</label>
+                  <input 
+                    type="date" 
+                    value={newTripStartDate} 
+                    onChange={e => setNewTripStartDate(e.target.value)} 
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">結束時間</label>
+                  <input 
+                    type="date" 
+                    value={newTripEndDate} 
+                    onChange={e => setNewTripEndDate(e.target.value)} 
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+                  />
+                </div>
               </div>
               <div className="mt-6 flex justify-end gap-2">
                 <button type="button" onClick={() => setIsAddTripModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
@@ -1046,14 +1048,25 @@ export default function TravelMapApp() {
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">旅程開始時間</label>
-                <input 
-                  type="date" 
-                  value={editTripData.start_date} 
-                  onChange={e => setEditTripData({ ...editTripData, start_date: e.target.value })} 
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
-                />
+              <div className="flex gap-2 mb-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">開始時間</label>
+                  <input 
+                    type="date" 
+                    value={editTripData.start_date} 
+                    onChange={e => setEditTripData({ ...editTripData, start_date: e.target.value })} 
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">結束時間</label>
+                  <input 
+                    type="date" 
+                    value={editTripData.end_date || editTripData.start_date} 
+                    onChange={e => setEditTripData({ ...editTripData, end_date: e.target.value })} 
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+                  />
+                </div>
               </div>
               <div className="mt-6 flex justify-between gap-2">
                 <button type="button" onClick={() => handleDeleteTrip(editTripData.id)} className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition border border-red-100">刪除旅程</button>
@@ -1067,11 +1080,78 @@ export default function TravelMapApp() {
         </div>
       )}
 
+      {/* 幻燈片設定 Modal */}
+      {isSlideshowSettingsOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[105] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-bold text-lg">幻燈片設定</h3>
+              <button onClick={() => setIsSlideshowSettingsOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+            </div>
+            <div className="p-5 flex flex-col gap-5">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">播放速度 (每張停留秒數)</label>
+                <input 
+                  type="number" 
+                  step="0.5"
+                  min="1"
+                  value={slideshowConfig.speed} 
+                  onChange={e => setSlideshowConfig({ ...slideshowConfig, speed: parseFloat(e.target.value) || 3.5 })} 
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 transition text-sm" 
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-slate-700">完整播放影片</div>
+                  <div className="text-xs text-slate-500 mt-0.5">遇到影片時暫停計時，播完再切換</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" checked={slideshowConfig.playFullVideo} onChange={e => setSlideshowConfig({ ...slideshowConfig, playFullVideo: e.target.checked })} />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-500"></div>
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">播放順序</label>
+                <select
+                  value={slideshowConfig.order}
+                  onChange={e => setSlideshowConfig({ ...slideshowConfig, order: e.target.value })}
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 transition text-sm bg-white"
+                >
+                  <option value="random">隨機打亂 (推薦)</option>
+                  <option value="chronological">依照景點順序</option>
+                </select>
+              </div>
+              <div className="mt-2 flex justify-end gap-2">
+                <button type="button" onClick={() => setIsSlideshowSettingsOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
+                <button 
+                  onClick={() => {
+                    let tripPhotos = photos.filter(p => true);
+                    if (slideshowConfig.order === 'random') {
+                      for (let i = tripPhotos.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [tripPhotos[i], tripPhotos[j]] = [tripPhotos[j], tripPhotos[i]];
+                      }
+                    }
+                    setSlideshowMedia(tripPhotos);
+                    setCurrentSlideshowIndex(0);
+                    setIsSlideshowSettingsOpen(false);
+                    setIsSlideshowOpen(true);
+                  }} 
+                  className="px-4 py-2 text-sm font-medium bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition shadow-sm flex items-center gap-2"
+                >
+                  <Play className="w-4 h-4" /> 開始播放
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 隨機幻燈片短影音 Modal */}
       {isSlideshowOpen && slideshowMedia.length > 0 && (
         <div className="fixed inset-0 bg-black z-[110] flex flex-col items-center justify-center animate-in fade-in duration-300">
-          <div className="absolute top-4 right-4 z-20">
-            <button onClick={() => setIsSlideshowOpen(false)} className="p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition backdrop-blur-sm">
+          <div className="absolute top-4 right-4 z-[999] pointer-events-auto">
+            <button onClick={() => setIsSlideshowOpen(false)} className="p-3 text-white hover:text-pink-100 bg-black/40 hover:bg-black/60 rounded-full transition backdrop-blur-md border border-white/10 shadow-lg">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -1082,7 +1162,19 @@ export default function TravelMapApp() {
                 className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === currentSlideshowIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
               >
                 {isVideo(media.url) ? (
-                  <video src={media.url} autoPlay playsInline muted loop className="w-full h-full object-contain" />
+                  <video 
+                    src={media.url} 
+                    autoPlay 
+                    playsInline 
+                    muted
+                    loop={!slideshowConfig.playFullVideo}
+                    onEnded={() => {
+                      if (slideshowConfig.playFullVideo) {
+                        setCurrentSlideshowIndex((prev) => (prev + 1) % slideshowMedia.length);
+                      }
+                    }}
+                    className="w-full h-full object-contain" 
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center overflow-hidden">
                     <img src={media.url} className="w-full h-full object-contain scale-105" />
