@@ -609,6 +609,23 @@ export default function TravelMapApp() {
                 >
                   <Settings className="w-4 h-4" />
                 </button>
+                <button
+                  onClick={() => {
+                    const tripPhotos = photos.filter(p => true);
+                    for (let i = tripPhotos.length - 1; i > 0; i--) {
+                      const j = Math.floor(Math.random() * (i + 1));
+                      [tripPhotos[i], tripPhotos[j]] = [tripPhotos[j], tripPhotos[i]];
+                    }
+                    setSlideshowMedia(tripPhotos);
+                    setCurrentSlideshowIndex(0);
+                    setIsSlideshowOpen(true);
+                  }}
+                  disabled={!selectedTrip || photos.length === 0}
+                  className="p-1.5 rounded-full transition disabled:opacity-50 bg-pink-50 text-pink-700 hover:bg-pink-100"
+                  title="播放幻燈片"
+                >
+                  <Play className="w-4 h-4" />
+                </button>
                 <label className={`p-1.5 rounded-full cursor-pointer transition ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`} title="智慧上傳照片">
                   {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   <input type="file" accept="image/*,video/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
