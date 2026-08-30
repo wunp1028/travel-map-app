@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings, Clock, Grid } from 'lucide-react';
+import { Trash2, Edit2, Plus, MapPin, UploadCloud, X, Save, MoreVertical, Image as ImageIcon, Navigation, Info, Maximize2, ChevronDown, ChevronUp, Loader2, GripVertical, ChevronLeft, ChevronRight, Search, Sparkles, FolderOpen, Camera, Settings, Clock, Grid, Play } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useSwipeable } from 'react-swipeable';
 import { useJsApiLoader } from '@react-google-maps/api';
 import exifr from 'exifr';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
 const GoogleMapComponent = dynamic(() => import('../components/GoogleMapComponent'), { ssr: false });
 
@@ -19,6 +20,8 @@ const chunkArray = (array: any[], size: number) => {
   }
   return result;
 };
+
+const isVideo = (url: string) => /\.(mp4|mov|webm)$/i.test(url || '');
 
 export default function TravelMapApp() {
   const { isLoaded } = useJsApiLoader({
@@ -49,6 +52,14 @@ export default function TravelMapApp() {
   // Modals state
   const [isAddTripModalOpen, setIsAddTripModalOpen] = useState(false);
   const [newTripName, setNewTripName] = useState('');
+  const [newTripStartDate, setNewTripStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+  const [isEditTripModalOpen, setIsEditTripModalOpen] = useState(false);
+  const [editTripData, setEditTripData] = useState<any>(null);
+
+  const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
+  const [slideshowMedia, setSlideshowMedia] = useState<any[]>([]);
+  const [currentSlideshowIndex, setCurrentSlideshowIndex] = useState(0);
 
   // 展開/收合狀態
   const [isMapExpanded, setIsMapExpanded] = useState(true);
@@ -78,6 +89,16 @@ export default function TravelMapApp() {
   useEffect(() => {
     fetchTrips();
   }, []);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isSlideshowOpen && slideshowMedia.length > 0) {
+      interval = setInterval(() => {
+        setCurrentSlideshowIndex((prev) => (prev + 1) % slideshowMedia.length);
+      }, 3500); // 3.5秒換一張/片
+    }
+    return () => clearInterval(interval);
+  }, [isSlideshowOpen, slideshowMedia.length]);
 
   const fetchTrips = async () => {
     try {
@@ -142,7 +163,7 @@ export default function TravelMapApp() {
       const res = await fetch('/api/trips', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ name: newTripName, start_date: new Date().toISOString() })
+        body: JSON.stringify({ name: newTripName, start_date: newTripStartDate })
       });
       const json = await res.json();
       if (json.success) {
@@ -153,6 +174,46 @@ export default function TravelMapApp() {
       }
     } catch (err) {
       console.error('新增旅程錯誤', err);
+    }
+  };
+
+  const handleEditTrip = async (e: any) => {
+    e.preventDefault();
+    if (!editTripData?.name.trim()) return;
+    try {
+      const res = await fetch('/api/trips', {
+        method: 'PUT',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ id: editTripData.id, name: editTripData.name, start_date: editTripData.start_date })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsEditTripModalOpen(false);
+        fetchTrips();
+        if (selectedTrip?.id === editTripData.id) {
+          setSelectedTrip(json.data);
+        }
+      }
+    } catch (err) {
+      console.error('修改旅程錯誤', err);
+    }
+  };
+
+  const handleDeleteTrip = async (id: any) => {
+    if (!confirm('確定要刪除這個旅程與其所有資料嗎？這將無法復原。')) return;
+    try {
+      const res = await fetch(`/api/trips?id=${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsEditTripModalOpen(false);
+        setSelectedTrip(null);
+        fetchTrips();
+      }
+    } catch (err) {
+      console.error('刪除旅程錯誤', err);
     }
   };
 
@@ -550,7 +611,7 @@ export default function TravelMapApp() {
                 </button>
                 <label className={`p-1.5 rounded-full cursor-pointer transition ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`} title="智慧上傳照片">
                   {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  <input type="file" accept="image/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
+                  <input type="file" accept="image/*,video/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
                 </label>
                 <button 
                   onClick={() => {
@@ -600,7 +661,21 @@ export default function TravelMapApp() {
         
         <div className="hidden md:flex p-4 md:p-6 border-b border-slate-200 bg-white justify-between items-center shadow-sm shrink-0">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-slate-800">{selectedTrip?.name || '請選擇旅程'}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl md:text-2xl font-bold text-slate-800">{selectedTrip?.name || '請選擇旅程'}</h1>
+              {selectedTrip && (
+                <button 
+                  onClick={() => {
+                    setEditTripData({ id: selectedTrip.id, name: selectedTrip.name, start_date: selectedTrip.start_date ? new Date(selectedTrip.start_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0] });
+                    setIsEditTripModalOpen(true);
+                  }}
+                  className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition"
+                  title="編輯旅程"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
             <p className="text-sm text-slate-500 mt-1">規劃您的精彩景點與回憶</p>
           </div>
           <div className="flex items-center gap-3">
@@ -613,10 +688,29 @@ export default function TravelMapApp() {
               {viewMode === 'card' ? <Clock className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
               <span>{viewMode === 'card' ? '時光軸模式' : '卡片模式'}</span>
             </button>
+            <button
+              onClick={() => {
+                const tripPhotos = photos.filter(p => true); // Copy of all photos in current trip
+                // Randomize array
+                for (let i = tripPhotos.length - 1; i > 0; i--) {
+                  const j = Math.floor(Math.random() * (i + 1));
+                  [tripPhotos[i], tripPhotos[j]] = [tripPhotos[j], tripPhotos[i]];
+                }
+                setSlideshowMedia(tripPhotos);
+                setCurrentSlideshowIndex(0);
+                setIsSlideshowOpen(true);
+              }}
+              disabled={!selectedTrip || photos.length === 0}
+              className="hidden md:flex items-center gap-2 px-3 py-2 bg-pink-50 text-pink-700 rounded-lg font-medium hover:bg-pink-100 transition disabled:opacity-50"
+              title="製作隨機短影音播放"
+            >
+              <Play className="w-4 h-4" />
+              <span>播放幻燈片</span>
+            </button>
             <label className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-medium hover:bg-indigo-100 transition cursor-pointer disabled:opacity-50" title="上傳照片並自動分配到最近的景點">
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               <span className="hidden md:inline">{uploading ? '智慧上傳中...' : '智慧上傳照片'}</span>
-              <input type="file" accept="image/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
+              <input type="file" accept="image/*,video/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
             </label>
             <button 
               onClick={() => setIsManageMode(!isManageMode)}
@@ -659,7 +753,11 @@ export default function TravelMapApp() {
                       className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
                       onClick={() => openLightbox(unassignedPlace.id, pIndex)}
                     >
-                      <img src={photo.url} alt="未分配" className="w-full h-full object-cover" />
+                      {isVideo(photo.url) ? (
+                        <video src={photo.url} className="w-full h-full object-cover" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
+                      ) : (
+                        <img src={photo.url} alt="未分配" className="w-full h-full object-cover" />
+                      )}
                     </div>
                     {/* 分配下拉選單 */}
                     <select 
@@ -725,7 +823,7 @@ export default function TravelMapApp() {
                               <label className="p-2 md:px-3 md:py-2 bg-blue-50 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-100 transition flex items-center gap-1.5 cursor-pointer">
                                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />} 
                                 <span className="hidden md:inline">{uploading ? '上傳中...' : '加入照片'}</span>
-                                <input type="file" accept="image/*" multiple onChange={(e) => handleMultiplePhotoUpload(e, place.id)} disabled={uploading} className="hidden" />
+                                <input type="file" accept="image/*,video/*" multiple onChange={(e) => handleMultiplePhotoUpload(e, place.id)} disabled={uploading} className="hidden" />
                               </label>
                               <button 
                                 onClick={() => {
@@ -757,11 +855,15 @@ export default function TravelMapApp() {
                                     className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-200 cursor-pointer relative shadow-sm"
                                     onClick={() => openLightbox(place.id, pIndex)}
                                   >
-                                    <img 
-                                      src={photo.url} 
-                                      alt={photo.description || '景點照片'} 
-                                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
-                                    />
+                                    {isVideo(photo.url) ? (
+                                      <video src={photo.url} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
+                                    ) : (
+                                      <img 
+                                        src={photo.url} 
+                                        alt={photo.description || '景點照片'} 
+                                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                                      />
+                                    )}
                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition"></div>
                                   </div>
                                   
@@ -843,7 +945,11 @@ export default function TravelMapApp() {
                               className="aspect-square rounded-xl overflow-hidden cursor-pointer relative group/photo shadow-sm"
                               onClick={() => openLightbox(place.id, pIndex)}
                             >
-                              <img src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
+                              {isVideo(photo.url) ? (
+                                <video src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
+                              ) : (
+                                <img src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
+                              )}
                               {photo.description && (
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/photo:opacity-100 transition duration-300 flex items-end p-2.5">
                                   <span className="text-[10px] text-white line-clamp-3 leading-tight drop-shadow-md">{photo.description}</span>
@@ -874,15 +980,26 @@ export default function TravelMapApp() {
               <button onClick={() => setIsAddTripModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
             </div>
             <form onSubmit={handleCreateTrip} className="p-5">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">旅程名稱</label>
-              <input 
-                type="text" 
-                autoFocus
-                placeholder="例如：2026 東京之旅" 
-                value={newTripName} 
-                onChange={e => setNewTripName(e.target.value)} 
-                className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
-              />
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">旅程名稱</label>
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder="例如：2026 東京之旅" 
+                  value={newTripName} 
+                  onChange={e => setNewTripName(e.target.value)} 
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">旅程開始時間</label>
+                <input 
+                  type="date" 
+                  value={newTripStartDate} 
+                  onChange={e => setNewTripStartDate(e.target.value)} 
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+                />
+              </div>
               <div className="mt-6 flex justify-end gap-2">
                 <button type="button" onClick={() => setIsAddTripModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
                 <button type="submit" className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm">建立</button>
@@ -891,6 +1008,75 @@ export default function TravelMapApp() {
           </div>
         </div>
       )}
+
+      {/* 編輯旅程 Modal */}
+      {isEditTripModalOpen && editTripData && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-bold text-lg">編輯旅程</h3>
+              <button onClick={() => setIsEditTripModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+            </div>
+            <form onSubmit={handleEditTrip} className="p-5">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">旅程名稱</label>
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder="例如：2026 東京之旅" 
+                  value={editTripData.name} 
+                  onChange={e => setEditTripData({ ...editTripData, name: e.target.value })} 
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">旅程開始時間</label>
+                <input 
+                  type="date" 
+                  value={editTripData.start_date} 
+                  onChange={e => setEditTripData({ ...editTripData, start_date: e.target.value })} 
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm" 
+                />
+              </div>
+              <div className="mt-6 flex justify-between gap-2">
+                <button type="button" onClick={() => handleDeleteTrip(editTripData.id)} className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition border border-red-100">刪除旅程</button>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setIsEditTripModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
+                  <button type="submit" className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm">儲存</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 隨機幻燈片短影音 Modal */}
+      {isSlideshowOpen && slideshowMedia.length > 0 && (
+        <div className="fixed inset-0 bg-black z-[110] flex flex-col items-center justify-center animate-in fade-in duration-300">
+          <div className="absolute top-4 right-4 z-20">
+            <button onClick={() => setIsSlideshowOpen(false)} className="p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition backdrop-blur-sm">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="flex-1 w-full h-full flex items-center justify-center relative overflow-hidden bg-black">
+            {slideshowMedia.map((media, index) => (
+              <div 
+                key={media.id + '_' + index}
+                className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === currentSlideshowIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+              >
+                {isVideo(media.url) ? (
+                  <video src={media.url} autoPlay playsInline muted loop className="w-full h-full object-contain" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                    <img src={media.url} className="w-full h-full object-contain scale-105" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
 
       {/* 照片描述快速編輯 Modal */}
       {isPhotoEditModalOpen && (
@@ -1057,11 +1243,19 @@ export default function TravelMapApp() {
           </button>
 
           <div className="flex-1 w-full max-w-7xl flex items-center justify-center overflow-hidden relative z-10">
-            <img 
-              src={lightboxPhotos[currentPhotoIndex].url} 
-              alt="Fullscreen" 
-              className="w-full h-full object-contain" 
-            />
+            {isVideo(lightboxPhotos[currentPhotoIndex].url) ? (
+              <video src={lightboxPhotos[currentPhotoIndex].url} controls autoPlay playsInline className="max-w-full max-h-full object-contain" />
+            ) : (
+              <TransformWrapper>
+                <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
+                  <img 
+                    src={lightboxPhotos[currentPhotoIndex].url} 
+                    alt="Fullscreen" 
+                    className="max-w-full max-h-full object-contain" 
+                  />
+                </TransformComponent>
+              </TransformWrapper>
+            )}
           </div>
         </div>
       )}
