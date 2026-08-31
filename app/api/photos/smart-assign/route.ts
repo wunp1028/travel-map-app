@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { trip_id, photoUrl, gpsLat, gpsLng, photoTime, override_place_id } = body;
+    const { trip_id, photoUrl, thumbnailUrl, gpsLat, gpsLng, photoTime, override_place_id } = body;
     
     if (!trip_id || !photoUrl) {
       return NextResponse.json({ error: 'Missing trip_id or photoUrl' }, { status: 400 });
@@ -94,6 +94,7 @@ export async function POST(request: Request) {
       .insert([{
         place_id: targetPlaceId,
         url: photoUrl,
+        thumbnail_url: thumbnailUrl,
         category: aiData.category,
         tags: aiData.tags,
         description: '', 

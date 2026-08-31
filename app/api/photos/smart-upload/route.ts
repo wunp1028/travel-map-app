@@ -31,6 +31,7 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const thumbnail = formData.get('thumbnail') as File | null;
     const trip_id = formData.get('trip_id') as string;
     
     if (!file || !trip_id) {
@@ -119,6 +120,22 @@ export async function POST(request: Request) {
     
     const photoUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileName}`;
 
+    let thumbnailUrl = null;
+    if (thumbnail) {
+      const thumbBuffer = Buffer.from(await thumbnail.arrayBuffer());
+      const thumbExtension = thumbnail.name.split('.').pop() || 'webp';
+      const thumbFileName = `thumb_${uuidv4()}.${thumbExtension}`;
+      
+      await r2.send(new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: thumbFileName,
+        Body: thumbBuffer,
+        ContentType: thumbnail.type,
+      }));
+      
+      thumbnailUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${thumbFileName}`;
+    }
+
     // 5. 簡化版 Gemini 分析
     // const base64Data = buffer.toString('base64');
     // const imagePart = { inlineData: { data: base64Data, mimeType: file.type } };
@@ -139,10 +156,12 @@ export async function POST(request: Request) {
       .insert([{
         place_id: targetPlaceId,
         url: photoUrl,
+        thumbnail_url: thumbnailUrl,
         category: aiData.category,
         tags: aiData.tags,
-        description: '', 
-        photo_time: photoTime
+        photo_time: photoTime,
+        lat: gpsLat,
+        lng: gpsLng
       }])
       .select();
 

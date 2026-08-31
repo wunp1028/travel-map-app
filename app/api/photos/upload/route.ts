@@ -8,6 +8,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const thumbnail = formData.get('thumbnail') as File | null;
     const place_id = formData.get('place_id') as string;
     // 接收前端手動輸入的描述（如果沒有填就給空字串）
     const description = (formData.get('description') as string) || '';
@@ -43,6 +44,22 @@ export async function POST(request: Request) {
     
     const photoUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileName}`;
 
+    let thumbnailUrl = null;
+    if (thumbnail) {
+      const thumbBuffer = Buffer.from(await thumbnail.arrayBuffer());
+      const thumbExtension = thumbnail.name.split('.').pop() || 'webp';
+      const thumbFileName = `thumb_${uuidv4()}.${thumbExtension}`;
+      
+      await r2.send(new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: thumbFileName,
+        Body: thumbBuffer,
+        ContentType: thumbnail.type,
+      }));
+      
+      thumbnailUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${thumbFileName}`;
+    }
+
     // 3. 呼叫 Gemini 進行「精簡版」分析（只求 category 與 tags，省下文字生成額度）
     // const base64Data = buffer.toString('base64');
     // const imagePart = {
@@ -72,6 +89,7 @@ export async function POST(request: Request) {
       .insert([{
         place_id: place_id,
         url: photoUrl,
+        thumbnail_url: thumbnailUrl,
         category: aiData.category,
         tags: aiData.tags,
         description: description, // 採用前端傳來的文字

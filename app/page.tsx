@@ -8,6 +8,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { useJsApiLoader } from '@react-google-maps/api';
 import exifr from 'exifr';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import imageCompression from 'browser-image-compression';
 
 const GoogleMapComponent = dynamic(() => import('../components/GoogleMapComponent'), { ssr: false });
 
@@ -428,23 +429,51 @@ export default function TravelMapApp() {
       
       for (const chunk of chunks) {
         await Promise.all(chunk.map(async (file: any) => {
-          // 1. Get Presigned URL
+          // 1. Get Presigned URL for original
           const ext = file.name.split('.').pop() || 'jpg';
           const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`, {
             headers: getAuthHeaders()
           });
           const urlData = await urlRes.json();
           
-          if (!urlData.success) throw new Error('無法取得上傳網址');
+          if (!urlData.success) throw new Error('無法取得原圖上傳網址');
 
-          // 2. Upload directly to R2
+          // 2. Upload original directly to R2
           await fetch(urlData.uploadUrl, {
             method: 'PUT',
             headers: { 'Content-Type': file.type },
             body: file
           });
 
-          // 3. (Optional) Parse EXIF to get photo time (no GPS assignment needed here)
+          // 3. Compress for thumbnail
+          let thumbnailUrl = null;
+          try {
+            const options = {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 800,
+              useWebWorker: true,
+              initialQuality: 0.85
+            };
+            const compressedFile = await imageCompression(file, options);
+            const thumbExt = compressedFile.name.split('.').pop() || 'webp';
+            const thumbUrlRes = await fetch(`/api/photos/upload-url?contentType=${compressedFile.type}&extension=${thumbExt}`, {
+              headers: getAuthHeaders()
+            });
+            const thumbUrlData = await thumbUrlRes.json();
+            
+            if (thumbUrlData.success) {
+              await fetch(thumbUrlData.uploadUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': compressedFile.type },
+                body: compressedFile
+              });
+              thumbnailUrl = thumbUrlData.publicUrl;
+            }
+          } catch (error) {
+            console.error('縮圖壓縮或上傳失敗', error);
+          }
+
+          // 4. Parse EXIF to get photo time (no GPS assignment needed here)
           let photoTime = new Date().toISOString();
           try {
             const exif = await exifr.parse(file);
@@ -455,16 +484,14 @@ export default function TravelMapApp() {
             console.log('No EXIF time');
           }
 
-          // 4. Save to database using a generic assign route or similar.
-          // Wait, the old `/api/photos/upload` also existed!
-          // We can use `smart-assign` and pass `placeId` explicitly!
-          // Let's modify smart-assign to accept an optional `place_id` override.
+          // 5. Save to database using a generic assign route
           await fetch('/api/photos/smart-assign', {
             method: 'POST',
             headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
               trip_id: selectedTrip?.id,
               photoUrl: urlData.publicUrl,
+              thumbnailUrl: thumbnailUrl,
               photoTime,
               override_place_id: placeId
             })
@@ -512,29 +539,58 @@ export default function TravelMapApp() {
             console.log('EXIF parse error', err);
           }
 
-          // 2. 取得 Presigned URL
+          // 2. 取得 Presigned URL for original
           const ext = file.name.split('.').pop() || 'jpg';
           const urlRes = await fetch(`/api/photos/upload-url?contentType=${file.type}&extension=${ext}`, {
             headers: getAuthHeaders()
           });
           const urlData = await urlRes.json();
           
-          if (!urlData.success) throw new Error('無法取得上傳網址');
+          if (!urlData.success) throw new Error('無法取得原圖上傳網址');
 
-          // 3. 直傳檔案到 Cloudflare R2
+          // 3. 直傳原圖檔案到 Cloudflare R2
           await fetch(urlData.uploadUrl, {
             method: 'PUT',
             headers: { 'Content-Type': file.type },
             body: file
           });
 
-          // 4. 通知後端寫入 DB 並自動分配景點
+          // 4. Compress for thumbnail
+          let thumbnailUrl = null;
+          try {
+            const options = {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 800,
+              useWebWorker: true,
+              initialQuality: 0.85
+            };
+            const compressedFile = await imageCompression(file, options);
+            const thumbExt = compressedFile.name.split('.').pop() || 'webp';
+            const thumbUrlRes = await fetch(`/api/photos/upload-url?contentType=${compressedFile.type}&extension=${thumbExt}`, {
+              headers: getAuthHeaders()
+            });
+            const thumbUrlData = await thumbUrlRes.json();
+            
+            if (thumbUrlData.success) {
+              await fetch(thumbUrlData.uploadUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': compressedFile.type },
+                body: compressedFile
+              });
+              thumbnailUrl = thumbUrlData.publicUrl;
+            }
+          } catch (error) {
+            console.error('縮圖壓縮或上傳失敗', error);
+          }
+
+          // 5. 通知後端寫入 DB 並自動分配景點
           await fetch('/api/photos/smart-assign', {
             method: 'POST',
             headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
               trip_id: selectedTrip.id,
               photoUrl: urlData.publicUrl,
+              thumbnailUrl: thumbnailUrl,
               gpsLat,
               gpsLng,
               photoTime
@@ -1017,7 +1073,7 @@ export default function TravelMapApp() {
                       {isVideo(photo.url) ? (
                         <video src={photo.url} className="w-full h-full object-cover" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                       ) : (
-                        <img loading="lazy" src={photo.url} alt="未分配" className="w-full h-full object-cover" />
+                        <img loading="lazy" src={photo.thumbnail_url || photo.url} alt="未分配" className="w-full h-full object-cover" />
                       )}
                     </div>
                     {/* 分配下拉選單 */}
@@ -1106,7 +1162,7 @@ export default function TravelMapApp() {
                                     ) : (
                                       <img 
                                         loading="lazy"
-                                        src={photo.url} 
+                                        src={photo.thumbnail_url || photo.url} 
                                         alt={photo.description || '景點照片'} 
                                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
                                       />
@@ -1197,7 +1253,7 @@ export default function TravelMapApp() {
                               {isVideo(photo.url) ? (
                                 <video src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                               ) : (
-                                <img loading="lazy" src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
+                                <img loading="lazy" src={photo.thumbnail_url || photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
                               )}
                               {photo.description && (
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/photo:opacity-100 transition duration-300 flex items-end p-2.5">

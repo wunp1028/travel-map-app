@@ -167,7 +167,7 @@ export default function GoogleMapComponent({
       {!selectionMode && places.map((place, index) => {
         if (!place.lat || !place.lng) return null;
         const placePhotos = photos.filter(p => p.place_id === place.id);
-        const firstPhotoUrl = placePhotos.length > 0 ? placePhotos[0].url : undefined;
+        const firstPhotoUrl = placePhotos.length > 0 ? (placePhotos[0].thumbnail_url || placePhotos[0].url) : undefined;
         
         return (
           <OverlayView
