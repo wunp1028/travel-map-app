@@ -4,8 +4,9 @@ export function getResizedUrl(url: string | null | undefined, width: number = 30
   
   try {
     const urlObj = new URL(url);
+    const baseOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || urlObj.origin;
     // Cloudflare Edge Resizing URL format
-    return `${urlObj.origin}/cdn-cgi/image/width=${width},quality=100,format=auto,fit=cover${urlObj.pathname}`;
+    return `${baseOrigin}/cdn-cgi/image/width=${width},quality=100,format=auto,fit=cover${urlObj.pathname}`;
   } catch (e) {
     return url;
   }
