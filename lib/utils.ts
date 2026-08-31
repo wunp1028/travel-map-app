@@ -11,3 +11,14 @@ export function getResizedUrl(url: string | null | undefined, width: number = 30
     return url;
   }
 }
+
+export function getOriginalUrl(url: string | null | undefined) {
+  if (!url) return undefined;
+  try {
+    const urlObj = new URL(url);
+    const baseOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || urlObj.origin;
+    return `${baseOrigin}${urlObj.pathname}`;
+  } catch (e) {
+    return url;
+  }
+}

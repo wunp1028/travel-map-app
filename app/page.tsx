@@ -9,7 +9,7 @@ import { useJsApiLoader } from '@react-google-maps/api';
 import exifr from 'exifr';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import imageCompression from 'browser-image-compression';
-import { getResizedUrl } from '@/lib/utils';
+import { getResizedUrl, getOriginalUrl } from '@/lib/utils';
 
 const GoogleMapComponent = dynamic(() => import('../components/GoogleMapComponent'), { ssr: false });
 
@@ -1488,7 +1488,7 @@ export default function TravelMapApp() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                      <img src={media.url} className="w-full h-full object-contain scale-105" />
+                      <img src={getOriginalUrl(media.url)} className="w-full h-full object-contain scale-105" />
                     </div>
                   )
                 ) : null}
