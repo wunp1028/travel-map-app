@@ -15,8 +15,8 @@ export function getResizedUrl(url: string | null | undefined, width: number = 38
     else if (width <= 640) w = 640;
     else w = 1080;
 
-    // Use Next.js built-in Image Optimization API
-    return `/_next/image?url=${encodeURIComponent(correctedUrl)}&w=${w}&q=75`;
+    // Cloudflare Image Resizing API (user requested test)
+    return `${baseOrigin}/cdn-cgi/image/width=${w},quality=100,format=auto${urlObj.pathname}`;
   } catch (e) {
     return url;
   }
