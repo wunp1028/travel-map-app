@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminSupabase } from '@/lib/clients';
+import { adminSupabase, r2 } from '@/lib/clients';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 // GET: 讀取特定旅程的所有景點
 export async function GET(request: Request) {
@@ -82,47 +83,49 @@ export async function DELETE(request: Request) {
 
     if (!id) return NextResponse.json({ error: '缺少 id' }, { status: 400 });
 
-    // 1. 先取得要刪除的景點的 trip_id
-    const { data: placeData, error: placeError } = await adminSupabase
-      .from('places')
-      .select('trip_id')
-      .eq('id', id)
-      .single();
-      
-    if (placeError) throw placeError;
-    const trip_id = placeData.trip_id;
+    // 1. 先取得要刪除的景點底下的所有照片
+    const { data: photos, error: fetchPhotosError } = await adminSupabase
+      .from('photos')
+      .select('id, url, thumbnail_url')
+      .eq('place_id', id);
 
-    // 2. 確保該 trip 擁有「未分配照片區」
-    let unassignedPlaceId = null;
-    const { data: places, error: placesError } = await adminSupabase
-      .from('places')
-      .select('id, name')
-      .eq('trip_id', trip_id);
-      
-    if (placesError) throw placesError;
-    
-    const unassignedPlace = places.find(p => p.name === '未分配照片區');
-    if (unassignedPlace) {
-      unassignedPlaceId = unassignedPlace.id;
-    } else {
-      const { data: newPlace, error: newPlaceError } = await adminSupabase
-        .from('places')
-        .insert([{ trip_id, name: '未分配照片區', lat: 0, lng: 0, order_index: 999 }])
-        .select();
-      if (newPlaceError) throw newPlaceError;
-      unassignedPlaceId = newPlace[0].id;
-    }
+    if (fetchPhotosError) throw fetchPhotosError;
 
-    // 3. 把原本綁定在這個景點的照片，全部轉移到「未分配照片區」
-    if (unassignedPlaceId && unassignedPlaceId !== id) {
-      const { error: updateError } = await adminSupabase
+    // 2. 刪除 R2 上的實體檔案 (原圖與縮圖)
+    if (photos && photos.length > 0) {
+      for (const photo of photos) {
+        // 刪除原圖
+        if (photo.url) {
+          const fileName = photo.url.split('/').pop();
+          if (fileName) {
+            await r2.send(new DeleteObjectCommand({
+              Bucket: process.env.R2_BUCKET_NAME,
+              Key: fileName,
+            }));
+          }
+        }
+        // 刪除縮圖
+        if (photo.thumbnail_url) {
+          const thumbFileName = photo.thumbnail_url.split('/').pop();
+          if (thumbFileName) {
+            await r2.send(new DeleteObjectCommand({
+              Bucket: process.env.R2_BUCKET_NAME,
+              Key: thumbFileName,
+            }));
+          }
+        }
+      }
+
+      // 3. 刪除 Supabase 中的照片紀錄
+      const { error: deletePhotosError } = await adminSupabase
         .from('photos')
-        .update({ place_id: unassignedPlaceId })
+        .delete()
         .eq('place_id', id);
-      if (updateError) throw updateError;
+        
+      if (deletePhotosError) throw deletePhotosError;
     }
 
-    // 4. 最後再刪除景點 (因為照片都已經移走了，不會有 Foreign Key Constraint 問題)
+    // 4. 最後刪除景點
     const { error } = await adminSupabase
       .from('places')
       .delete()
