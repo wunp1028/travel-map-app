@@ -82,6 +82,47 @@ export async function DELETE(request: Request) {
 
     if (!id) return NextResponse.json({ error: '缺少 id' }, { status: 400 });
 
+    // 1. 先取得要刪除的景點的 trip_id
+    const { data: placeData, error: placeError } = await adminSupabase
+      .from('places')
+      .select('trip_id')
+      .eq('id', id)
+      .single();
+      
+    if (placeError) throw placeError;
+    const trip_id = placeData.trip_id;
+
+    // 2. 確保該 trip 擁有「未分配照片區」
+    let unassignedPlaceId = null;
+    const { data: places, error: placesError } = await adminSupabase
+      .from('places')
+      .select('id, name')
+      .eq('trip_id', trip_id);
+      
+    if (placesError) throw placesError;
+    
+    const unassignedPlace = places.find(p => p.name === '未分配照片區');
+    if (unassignedPlace) {
+      unassignedPlaceId = unassignedPlace.id;
+    } else {
+      const { data: newPlace, error: newPlaceError } = await adminSupabase
+        .from('places')
+        .insert([{ trip_id, name: '未分配照片區', lat: 0, lng: 0, order_index: 999 }])
+        .select();
+      if (newPlaceError) throw newPlaceError;
+      unassignedPlaceId = newPlace[0].id;
+    }
+
+    // 3. 把原本綁定在這個景點的照片，全部轉移到「未分配照片區」
+    if (unassignedPlaceId && unassignedPlaceId !== id) {
+      const { error: updateError } = await adminSupabase
+        .from('photos')
+        .update({ place_id: unassignedPlaceId })
+        .eq('place_id', id);
+      if (updateError) throw updateError;
+    }
+
+    // 4. 最後再刪除景點 (因為照片都已經移走了，不會有 Foreign Key Constraint 問題)
     const { error } = await adminSupabase
       .from('places')
       .delete()
