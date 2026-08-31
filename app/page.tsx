@@ -9,7 +9,8 @@ import { useJsApiLoader } from '@react-google-maps/api';
 import exifr from 'exifr';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import imageCompression from 'browser-image-compression';
-import { getResizedUrl, getOriginalUrl } from '@/lib/utils';
+import Image from 'next/image';
+import { cloudflareLoader, getOriginalUrl } from '@/lib/utils';
 
 const GoogleMapComponent = dynamic(() => import('../components/GoogleMapComponent'), { ssr: false });
 
@@ -1026,7 +1027,7 @@ export default function TravelMapApp() {
                       {isVideo(photo.url) ? (
                         <video src={photo.url} className="w-full h-full object-cover" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                       ) : (
-                        <img loading="lazy" src={getResizedUrl(photo.url, 300)} alt="未分配" className="w-full h-full object-cover" />
+                        <Image loader={cloudflareLoader} src={photo.url} alt="照片" fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="object-cover" />
                       )}
                     </div>
                     {/* 分配下拉選單 */}
@@ -1113,11 +1114,13 @@ export default function TravelMapApp() {
                                     {isVideo(photo.url) ? (
                                       <video src={photo.url} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                                     ) : (
-                                      <img 
-                                        loading="lazy"
-                                        src={getResizedUrl(photo.url, 400)} 
-                                        alt={photo.description || '景點照片'} 
-                                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                                      <Image 
+                                        loader={cloudflareLoader}
+                                        src={photo.url} 
+                                        alt={photo.description || '照片'} 
+                                        fill
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                        className="object-cover group-hover:scale-105 transition duration-500" 
                                       />
                                     )}
                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition"></div>
@@ -1206,7 +1209,7 @@ export default function TravelMapApp() {
                               {isVideo(photo.url) ? (
                                 <video src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                               ) : (
-                                <img loading="lazy" src={getResizedUrl(photo.url, 400)} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
+                                <Image loader={cloudflareLoader} src={photo.url} alt="照片" fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="object-cover group-hover/photo:scale-110 transition duration-500" />
                               )}
                               {photo.description && (
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/photo:opacity-100 transition duration-300 flex items-end p-2.5">

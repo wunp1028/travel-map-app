@@ -1,3 +1,18 @@
+export function cloudflareLoader({ src, width, quality }: { src: string; width: number; quality?: number }) {
+  if (!src) return '';
+  
+  try {
+    const urlObj = new URL(src);
+    const baseOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || urlObj.origin;
+    const q = quality || 100;
+    
+    // Cloudflare Image Resizing API
+    return `${baseOrigin}/cdn-cgi/image/width=${width},quality=${q},format=auto${urlObj.pathname}`;
+  } catch (e) {
+    return src;
+  }
+}
+
 export function getResizedUrl(url: string | null | undefined, width: number = 384) {
   if (!url) return undefined;
   if (url.includes('_next/image')) return url; // Already resized
