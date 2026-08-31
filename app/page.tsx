@@ -452,7 +452,7 @@ export default function TravelMapApp() {
               maxSizeMB: 1,
               maxWidthOrHeight: 800,
               useWebWorker: true,
-              initialQuality: 0.85
+              initialQuality: 0.95
             };
             const compressedFile = await imageCompression(file, options);
             const thumbExt = compressedFile.name.split('.').pop() || 'webp';
@@ -562,7 +562,7 @@ export default function TravelMapApp() {
               maxSizeMB: 1,
               maxWidthOrHeight: 800,
               useWebWorker: true,
-              initialQuality: 0.85
+              initialQuality: 0.95
             };
             const compressedFile = await imageCompression(file, options);
             const thumbExt = compressedFile.name.split('.').pop() || 'webp';
