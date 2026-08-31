@@ -94,7 +94,6 @@ export async function POST(request: Request) {
       .insert([{
         place_id: targetPlaceId,
         url: photoUrl,
-        thumbnail_url: thumbnailUrl,
         category: aiData.category,
         tags: aiData.tags,
         description: '', 

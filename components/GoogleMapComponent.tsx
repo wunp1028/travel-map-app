@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { GoogleMap, Marker, Polyline, OverlayView } from '@react-google-maps/api';
+import { getResizedUrl } from '@/lib/utils';
 
 const mapContainerStyle = {
   width: '100%',
@@ -167,7 +168,7 @@ export default function GoogleMapComponent({
       {!selectionMode && places.map((place, index) => {
         if (!place.lat || !place.lng) return null;
         const placePhotos = photos.filter(p => p.place_id === place.id);
-        const firstPhotoUrl = placePhotos.length > 0 ? (placePhotos[0].thumbnail_url || placePhotos[0].url) : undefined;
+        const firstPhotoUrl = placePhotos.length > 0 ? placePhotos[0].url : undefined;
         
         return (
           <OverlayView
@@ -190,7 +191,7 @@ export default function GoogleMapComponent({
               {/* 圓形大頭針主體 */}
               {firstPhotoUrl ? (
                 <div className="w-7 h-7 rounded-full border-[1.5px] border-white shadow-md bg-white relative">
-                  <img src={firstPhotoUrl} className="w-full h-full object-cover rounded-full" alt={place.name} />
+                  <img src={getResizedUrl(firstPhotoUrl, 100)} className="w-full h-full object-cover rounded-full" alt={place.name} />
                   <div className="absolute -top-[2px] -right-[2px] w-3.5 h-3.5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold border border-white shadow-sm">
                     {index + 1}
                   </div>
