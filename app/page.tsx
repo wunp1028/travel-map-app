@@ -1017,7 +1017,7 @@ export default function TravelMapApp() {
                       {isVideo(photo.url) ? (
                         <video src={photo.url} className="w-full h-full object-cover" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                       ) : (
-                        <img loading="lazy" src={`https://wsrv.nl/?url=${encodeURIComponent(photo.url)}&w=400`} alt="未分配" className="w-full h-full object-cover" />
+                        <img loading="lazy" src={photo.url} alt="未分配" className="w-full h-full object-cover" />
                       )}
                     </div>
                     {/* 分配下拉選單 */}
@@ -1106,7 +1106,7 @@ export default function TravelMapApp() {
                                     ) : (
                                       <img 
                                         loading="lazy"
-                                        src={`https://wsrv.nl/?url=${encodeURIComponent(photo.url)}&w=400`} 
+                                        src={photo.url} 
                                         alt={photo.description || '景點照片'} 
                                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
                                       />
@@ -1197,7 +1197,7 @@ export default function TravelMapApp() {
                               {isVideo(photo.url) ? (
                                 <video src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" muted loop playsInline onMouseEnter={e => e.currentTarget.play()} onMouseLeave={e => e.currentTarget.pause()} />
                               ) : (
-                                <img loading="lazy" src={`https://wsrv.nl/?url=${encodeURIComponent(photo.url)}&w=400`} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
+                                <img loading="lazy" src={photo.url} className="w-full h-full object-cover group-hover/photo:scale-110 transition duration-500" />
                               )}
                               {photo.description && (
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/photo:opacity-100 transition duration-300 flex items-end p-2.5">
@@ -1431,7 +1431,7 @@ export default function TravelMapApp() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                      <img src={`https://wsrv.nl/?url=${encodeURIComponent(media.url)}&w=400`} className="w-full h-full object-contain scale-105" />
+                      <img src={media.url} className="w-full h-full object-contain scale-105" />
                     </div>
                   )
                 ) : null}

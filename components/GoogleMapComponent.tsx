@@ -190,7 +190,7 @@ export default function GoogleMapComponent({
               {/* 圓形大頭針主體 */}
               {firstPhotoUrl ? (
                 <div className="w-7 h-7 rounded-full border-[1.5px] border-white shadow-md bg-white relative">
-                  <img src={`https://wsrv.nl/?url=${encodeURIComponent(firstPhotoUrl)}&w=100`} className="w-full h-full object-cover rounded-full" alt={place.name} />
+                  <img src={firstPhotoUrl} className="w-full h-full object-cover rounded-full" alt={place.name} />
                   <div className="absolute -top-[2px] -right-[2px] w-3.5 h-3.5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold border border-white shadow-sm">
                     {index + 1}
                   </div>
