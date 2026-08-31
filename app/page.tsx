@@ -798,7 +798,7 @@ export default function TravelMapApp() {
       {/* 隱藏的背景音樂播放器 */}
       <audio 
         ref={audioRef} 
-        src={currentMusicUrl} 
+        src={getOriginalUrl(currentMusicUrl) || ''} 
         onEnded={playRandomMusic}
         preload="auto"
       />
