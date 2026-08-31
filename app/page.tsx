@@ -39,8 +39,8 @@ export default function TravelMapApp() {
   const [tripPlans, setTripPlans] = useState<any[]>([]);
   const [isTripPlansModalOpen, setIsTripPlansModalOpen] = useState(false);
   const [uploadingPlan, setUploadingPlan] = useState(false);
-  
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   
   const getAuthHeaders = (extraHeaders: any = {}) => {
     let token = localStorage.getItem('adminToken');
@@ -424,6 +424,8 @@ export default function TravelMapApp() {
     if (!files || files.length === 0) return;
 
     setUploading(true);
+    setUploadProgress({ current: 0, total: files.length });
+    let completed = 0;
     try {
       const filesArray = Array.from(files) as any[];
       const chunks = chunkArray(filesArray, 3); // 每次同時處理 3 張照片，兼顧速度與穩定性
@@ -446,35 +448,7 @@ export default function TravelMapApp() {
             body: file
           });
 
-          // 3. Compress for thumbnail
-          let thumbnailUrl = null;
-          try {
-            const options = {
-              maxSizeMB: 1,
-              maxWidthOrHeight: 800,
-              useWebWorker: true,
-              initialQuality: 0.95
-            };
-            const compressedFile = await imageCompression(file, options);
-            const thumbExt = compressedFile.name.split('.').pop() || 'webp';
-            const thumbUrlRes = await fetch(`/api/photos/upload-url?contentType=${compressedFile.type}&extension=${thumbExt}`, {
-              headers: getAuthHeaders()
-            });
-            const thumbUrlData = await thumbUrlRes.json();
-            
-            if (thumbUrlData.success) {
-              await fetch(thumbUrlData.uploadUrl, {
-                method: 'PUT',
-                headers: { 'Content-Type': compressedFile.type },
-                body: compressedFile
-              });
-              thumbnailUrl = thumbUrlData.publicUrl;
-            }
-          } catch (error) {
-            console.error('縮圖壓縮或上傳失敗', error);
-          }
-
-          // 4. Parse EXIF to get photo time (no GPS assignment needed here)
+          // 3. Parse EXIF to get photo time (no GPS assignment needed here)
           let photoTime = new Date().toISOString();
           try {
             const exif = await exifr.parse(file);
@@ -485,18 +459,20 @@ export default function TravelMapApp() {
             console.log('No EXIF time');
           }
 
-          // 5. Save to database using a generic assign route
+          // 4. Save to database using a generic assign route
           await fetch('/api/photos/smart-assign', {
             method: 'POST',
             headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
               trip_id: selectedTrip?.id,
               photoUrl: urlData.publicUrl,
-              thumbnailUrl: thumbnailUrl,
               photoTime,
               override_place_id: placeId
             })
           });
+          
+          completed++;
+          setUploadProgress(prev => ({ ...prev, current: completed }));
         }));
       }
 
@@ -514,6 +490,8 @@ export default function TravelMapApp() {
     if (!files || files.length === 0 || !selectedTrip) return;
 
     setUploading(true);
+    setUploadProgress({ current: 0, total: files.length });
+    let completed = 0;
     try {
       const filesArray = Array.from(files) as any[];
       const chunks = chunkArray(filesArray, 3); // 每次同時處理 3 張照片
@@ -556,47 +534,21 @@ export default function TravelMapApp() {
             body: file
           });
 
-          // 4. Compress for thumbnail
-          let thumbnailUrl = null;
-          try {
-            const options = {
-              maxSizeMB: 1,
-              maxWidthOrHeight: 800,
-              useWebWorker: true,
-              initialQuality: 0.95
-            };
-            const compressedFile = await imageCompression(file, options);
-            const thumbExt = compressedFile.name.split('.').pop() || 'webp';
-            const thumbUrlRes = await fetch(`/api/photos/upload-url?contentType=${compressedFile.type}&extension=${thumbExt}`, {
-              headers: getAuthHeaders()
-            });
-            const thumbUrlData = await thumbUrlRes.json();
-            
-            if (thumbUrlData.success) {
-              await fetch(thumbUrlData.uploadUrl, {
-                method: 'PUT',
-                headers: { 'Content-Type': compressedFile.type },
-                body: compressedFile
-              });
-              thumbnailUrl = thumbUrlData.publicUrl;
-            }
-          } catch (error) {
-            console.error('縮圖壓縮或上傳失敗', error);
-          }
-
-          // 5. 通知後端寫入 DB 並自動分配景點
+          // 4. 通知後端寫入 DB 並自動分配景點
           await fetch('/api/photos/smart-assign', {
             method: 'POST',
             headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
               trip_id: selectedTrip.id,
               photoUrl: urlData.publicUrl,
-              thumbnailUrl: thumbnailUrl,
               gpsLat,
               gpsLng,
               photoTime
             })
           });
+          
+          completed++;
+          setUploadProgress(prev => ({ ...prev, current: completed }));
         }));
       }
 
@@ -883,7 +835,7 @@ export default function TravelMapApp() {
                         </button>
                         <label className={`flex items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer ${uploading || !selectedTrip ? 'opacity-40 pointer-events-none' : ''}`}>
                           {uploading ? <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" /> : <Sparkles className="w-5 h-5 text-indigo-600" />}
-                          <span>智慧上傳照片</span>
+                          <span>{uploading ? (uploadProgress.total > 0 ? `上傳中 (${uploadProgress.current}/${uploadProgress.total})...` : '上傳中...') : '智慧上傳照片'}</span>
                           <input type="file" accept="image/*,video/*" multiple onChange={(e) => { handleSmartUpload(e); setIsMobileMenuOpen(false); }} disabled={uploading || !selectedTrip} className="hidden" />
                         </label>
                         <div className="h-px bg-slate-100 my-1 mx-3"></div>
@@ -1027,7 +979,7 @@ export default function TravelMapApp() {
             </button>
             <label className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-medium hover:bg-indigo-100 transition cursor-pointer disabled:opacity-50" title="上傳照片並自動分配到最近的景點">
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span className="hidden md:inline">{uploading ? '智慧上傳中...' : '智慧上傳照片'}</span>
+              <span className="hidden md:inline">{uploading ? (uploadProgress.total > 0 ? `上傳中 (${uploadProgress.current}/${uploadProgress.total})...` : '智慧上傳中...') : '智慧上傳照片'}</span>
               <input type="file" accept="image/*,video/*" multiple onChange={handleSmartUpload} disabled={uploading || !selectedTrip} className="hidden" />
             </label>
             <button 
@@ -1632,7 +1584,7 @@ export default function TravelMapApp() {
                       <div className="flex gap-2 mb-2">
                         <label className="flex-1 py-2 text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition text-center cursor-pointer flex items-center justify-center gap-1.5">
                           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                          {uploading ? '上傳中...' : '加入照片'}
+                          {uploading ? (uploadProgress.total > 0 ? `上傳中 (${uploadProgress.current}/${uploadProgress.total})...` : '上傳中...') : '加入照片'}
                           <input type="file" accept="image/*,video/*" multiple onChange={(e) => { handleMultiplePhotoUpload(e, editingPlace.id); setIsPlaceModalOpen(false); }} disabled={uploading} className="hidden" />
                         </label>
                         <button type="button" onClick={() => { handleDeletePlace(editingPlace.id); setIsPlaceModalOpen(false); }} className="flex-1 py-2 text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition flex items-center justify-center gap-1.5">
