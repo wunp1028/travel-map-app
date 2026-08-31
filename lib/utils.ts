@@ -7,15 +7,17 @@ export function getResizedUrl(url: string | null | undefined, width: number = 38
     const baseOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || urlObj.origin;
     const correctedUrl = `${baseOrigin}${urlObj.pathname}`;
     
-    // Vercel/Next.js default allowed image sizes: 16, 32, 48, 64, 96, 128, 256, 384, 640, 750, 828, 1080...
+    // Multiply width by 2 to account for Retina (high-DPI) displays since we use standard <img> tags
+    const targetWidth = width * 2;
+    
+    // Select the closest bucket
     let w = 384;
-    if (width <= 96) w = 96;
-    else if (width <= 256) w = 256;
-    else if (width <= 384) w = 384;
-    else if (width <= 640) w = 640;
-    else w = 1080;
+    if (targetWidth <= 384) w = 384;
+    else if (targetWidth <= 640) w = 640;
+    else if (targetWidth <= 1080) w = 1080;
+    else w = 1920;
 
-    // Cloudflare Image Resizing API (user requested test)
+    // Cloudflare Image Resizing API
     return `${baseOrigin}/cdn-cgi/image/width=${w},quality=100,format=auto${urlObj.pathname}`;
   } catch (e) {
     return url;
